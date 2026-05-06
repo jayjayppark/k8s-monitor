@@ -1,0 +1,29 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# build outputs
+dist/
+build/
+.next/
+out/
+coverage/
+
+# logs
+*.log
+.agent/logs/
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+# local files
+.local/
