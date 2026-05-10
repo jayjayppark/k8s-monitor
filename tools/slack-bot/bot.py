@@ -213,6 +213,13 @@ def build_codex_prompt(
 - 파일을 수정했다면 `git diff --check`와 가능한 테스트/검증 명령을 실행해라.
 - 테스트 또는 필수 검증이 실패하면 commit과 push를 하지 마라.
 - 검증이 통과하면 관련 파일만 stage하고 conventional commit 형식으로 commit한 뒤 현재 branch를 origin에 push해라.
+- commit message는 제목만 쓰지 말고 body에 bullet list를 포함해라.
+- commit message 형식:
+  - 1줄 제목: `<type>(<scope>): <summary>`
+  - 빈 줄
+  - `- <주요 변경 1>`
+  - `- <주요 변경 2>`
+  - `- Tests: <실행한 검증 명령 요약>`
 - 답변만 한 경우에는 commit/push를 하지 마라.
 
 완료 보고에 포함할 것:
