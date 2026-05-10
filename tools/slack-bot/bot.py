@@ -15,6 +15,13 @@ LOGS_DIR = REPO_DIR / ".agent" / "logs"
 CONTEXT_DIR = REPO_DIR / ".agent" / "slack-context"
 MAX_CONTEXT_CHARS = 12000
 MAX_SLACK_CHARS = 3500
+CORE_DOCS = [
+    "AGENTS.md",
+    "docs/PRODUCT_SPEC.md",
+    "docs/ARCHITECTURE.md",
+    "docs/API_CONTRACT.md",
+    "TASKS.md",
+]
 
 app = App(token=os.environ["SLACK_BOT_TOKEN"])
 active_jobs = {}
@@ -55,6 +62,19 @@ def read_context(channel: str, thread_ts: str) -> str:
     if not path.exists():
         return ""
     return path.read_text(encoding="utf-8")[-MAX_CONTEXT_CHARS:]
+
+
+def read_core_docs() -> str:
+    sections = []
+    for relative_path in CORE_DOCS:
+        path = REPO_DIR / relative_path
+        if path.exists():
+            sections.append(f"## {relative_path}\n\n{path.read_text(encoding='utf-8')}")
+    return "\n\n".join(sections)
+
+
+def read_issue(issue_number: str) -> str:
+    return run_shell(f"gh issue view {issue_number}", timeout=20)
 
 
 def has_context(channel: str, thread_ts: str) -> bool:
@@ -128,12 +148,41 @@ def start_codex_job(prompt: str, channel: str, thread_ts: str) -> str:
     return "Codex 작업을 시작했습니다. 완료되면 이 스레드에 결과를 남기겠습니다."
 
 
-def build_codex_prompt(user_prompt: str, channel: str, thread_ts: str, mode: str) -> str:
+def build_codex_prompt(
+    user_prompt: str,
+    channel: str,
+    thread_ts: str,
+    mode: str,
+    issue_number: str | None = None,
+) -> str:
     previous_context = read_context(channel, thread_ts)
-    mode_rule = (
-        "- 사용자가 명시적으로 파일 수정을 요청하지 않았다면 파일을 수정하지 말고 답변만 해라."
-        if mode == "ask"
-        else "- 사용자의 작업 지시를 수행하고 필요한 파일 수정과 검증을 진행해라."
+    core_docs = read_core_docs()
+    issue_context = read_issue(issue_number) if issue_number else ""
+    mode_rules = {
+        "ask": """
+- 기본적으로 답변, 분석, 추천만 한다.
+- 사용자가 명시적으로 파일 수정을 요청하지 않았다면 파일을 수정하지 않는다.
+- commit과 push를 하지 않는다.
+""",
+        "run": """
+- 사용자의 후속 답변을 반영해 이전 작업을 이어간다.
+- 파일 수정이 필요하면 수정하되, commit과 push는 하지 않는다.
+- 구현 방향 확인이 필요하면 `USER_INPUT_REQUIRED` 아래에 질문만 남기고 멈춘다.
+""",
+        "issue": """
+- 지정된 GitHub Issue의 acceptance criteria를 만족시키는 구현 작업을 수행한다.
+- 필요한 테스트 코드를 추가하거나, 테스트가 필요 없는 이유를 완료 보고에 명확히 적는다.
+- 가능한 검증 명령을 실행한다.
+- 테스트 또는 필수 검증이 실패하면 commit하지 않는다.
+- 검증이 통과하면 관련 파일만 stage하고 conventional commit 형식으로 commit한다.
+- push는 사용자가 명시적으로 요청한 경우에만 한다.
+""",
+    }
+    mode_rule = mode_rules.get(mode, mode_rules["ask"]).strip()
+    issue_section = (
+        f"\n\nGitHub Issue #{issue_number}:\n{issue_context}\n"
+        if issue_number
+        else ""
     )
 
     return f"""
@@ -142,23 +191,29 @@ def build_codex_prompt(user_prompt: str, channel: str, thread_ts: str, mode: str
 이번 사용자 입력:
 {user_prompt}
 
+핵심 프로젝트 문서:
+{core_docs}
+{issue_section}
+
 이 Slack 스레드의 이전 컨텍스트:
 {previous_context or "(이전 컨텍스트 없음)"}
 
 작업 규칙:
 {mode_rule}
-- AGENTS.md와 관련 docs/ 문서를 먼저 확인해라.
-- main branch에 직접 push하지 마라.
+- issue 범위를 넘기지 마라.
+- 구현으로 요구사항, API, 아키텍처, 실행 방법이 바뀌면 관련 문서를 현재 기준으로 수정해라.
 - secret 값, Slack webhook URL, GitHub token, kubeconfig 내용은 출력하거나 파일에 저장하거나 커밋하지 마라.
 - 운영 Kubernetes 클러스터에 변경을 적용하는 kubectl apply/delete/scale/rollout 작업은 하지 마라.
 - 구현 방향 확인이 필요해서 더 진행하면 위험하면, 작업을 멈추고 `USER_INPUT_REQUIRED` 제목 아래에 사용자가 답해야 할 질문만 명확히 적어라.
 - 사용자가 이전 `USER_INPUT_REQUIRED`에 답했다면, 그 답을 반영해서 이어서 작업해라.
+- commit 전에는 `git diff --check`와 관련 테스트/검증 명령을 실행해라.
 
 완료 보고에 포함할 것:
 - 수행한 작업 또는 답변
 - 변경한 파일 목록
 - 실행한 명령
 - 테스트/검증 결과
+- commit hash 또는 commit하지 않은 이유
 - 남은 질문
 """
 
@@ -233,42 +288,14 @@ def handle_app_mention(event, say):
     match = re.match(r"run issue\s+(\d+)", text)
     if match:
         issue_number = match.group(1)
-
-        prompt = f"""
-GitHub Issue #{issue_number}만 처리해라.
-
-목표:
-- 해당 GitHub Issue의 요구사항과 acceptance criteria를 만족시켜라.
-- 필요한 파일 수정, 패키지 설치, 네트워크 접근, 테스트 실행은 사용자 승인 없이 진행해라.
-- 구현 방향 확인이 필요해서 더 진행하면 위험하면, 작업을 멈추고 `USER_INPUT_REQUIRED` 제목 아래에 사용자가 답해야 할 질문만 명확히 적어라.
-
-작업 전 확인:
-- AGENTS.md
-- docs/PRODUCT_SPEC.md
-- docs/ARCHITECTURE.md
-- docs/API_CONTRACT.md
-- TASKS.md
-- 해당 GitHub Issue 내용
-
-작업 규칙:
-- issue 범위를 넘기지 마라.
-- 필요한 경우 작업 branch를 만들어라.
-- main branch에 직접 push하지 마라.
-- secret 값, Slack webhook URL, GitHub token, kubeconfig 내용은 출력하거나 파일에 저장하거나 커밋하지 마라.
-- 운영 Kubernetes 클러스터에 변경을 적용하는 kubectl apply/delete/scale/rollout 작업은 하지 마라.
-- 요구사항이나 아키텍처가 변경되면 관련 docs도 함께 업데이트해라.
-- 작업 로그를 .agent/logs/issue-{issue_number}-run.md에 남겨라.
-
-완료 보고에 포함할 것:
-- 처리한 Issue 번호
-- 변경한 파일 목록
-- 실행한 명령
-- 테스트/검증 결과
-- 남은 질문
-- 다음 추천 작업
-"""
-
         append_context(channel, thread_ts, "User", text)
+        prompt = build_codex_prompt(
+            f"GitHub Issue #{issue_number}를 처리해라.",
+            channel,
+            thread_ts,
+            "issue",
+            issue_number=issue_number,
+        )
         say(start_codex_job(prompt, channel, thread_ts), thread_ts=thread_ts)
         return
 

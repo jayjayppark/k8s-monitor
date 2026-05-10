@@ -194,6 +194,8 @@ Slack에서는 GitHub Issue 단위로 일을 시키는 방식을 우선합니다
 @AI Devbox Bot run issue 33
 ```
 
+`run issue`는 구현 작업용입니다. 봇은 핵심 문서와 issue 본문을 Codex prompt에 넣고, 가능한 테스트/검증을 실행한 뒤 통과하면 commit까지 하도록 지시합니다. push는 명시적으로 요청한 경우에만 합니다.
+
 “가장 먼저 해야 할 일을 골라서 해라”처럼 시킬 수도 있지만, 더 안정적인 방식은 issue 번호를 명시하는 것입니다.
 
 ```text
@@ -205,6 +207,8 @@ Slack에서는 GitHub Issue 단위로 일을 시키는 방식을 우선합니다
 ```text
 @AI Devbox Bot run issue 3
 ```
+
+분석이나 추천만 필요하면 `ask codex`를 사용합니다. 이 명령은 기본적으로 파일 수정과 commit을 하지 않는 용도입니다.
 
 Slack bot은 같은 Slack thread의 이전 대화를 컨텍스트로 저장합니다. 작업 주제가 바뀌면 새 thread를 사용하거나 아래 명령으로 thread context를 지웁니다.
 
