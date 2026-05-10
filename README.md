@@ -11,7 +11,7 @@ MVP는 EC2 한 대에서 단일 노드 Kubernetes를 실행하고, 같은 EC2에
 - 제품 요구사항, 아키텍처, API 계약 초안 작성 완료.
 - 백엔드 Fastify 서버 skeleton과 `/api/health` 구현 완료.
 - kubeconfig 또는 in-cluster service account 기반 Kubernetes client 초기화와 health connectivity check 구현 완료.
-- 프론트엔드 런타임 구현은 아직 시작 전입니다.
+- 프론트엔드 React + Vite app shell, 백엔드 API client, overview dashboard, alert panel, recent events panel 구현 완료.
 
 ## 저장소 구조
 
@@ -38,7 +38,7 @@ pnpm lint
 pnpm format
 ```
 
-백엔드 workspace script는 실제 Fastify dev server, 타입체크, 테스트를 실행합니다. 아직 구현 전인 workspace script는 placeholder이며, 구현이 진행되면 위 명령이 실제 프론트엔드와 공유 패키지 검증을 실행하도록 유지합니다.
+백엔드, 프론트엔드, 공유 패키지 workspace script는 타입체크, 빌드, 테스트를 실행합니다.
 
 ## 백엔드 실행
 
@@ -79,7 +79,7 @@ curl http://127.0.0.1:3000/api/health
 
 ## 프론트엔드 실행
 
-구현 후 프론트엔드는 Vite 개발 서버로 실행됩니다.
+프론트엔드는 Vite 개발 서버로 실행됩니다.
 
 ```sh
 pnpm dev:frontend
@@ -101,7 +101,29 @@ pnpm dev:frontend -- --host 0.0.0.0
 http://<EC2_PUBLIC_IP>:5173
 ```
 
-프론트엔드는 백엔드 API base URL을 설정할 수 있어야 합니다. 실제 환경 변수 이름은 프론트엔드 구현 시 확정합니다.
+기본적으로 프론트엔드는 same-origin `/api`를 호출하고, Vite dev server가 백엔드로 proxy합니다. proxy target 기본값은 `http://127.0.0.1:3000`입니다.
+
+백엔드가 다른 host 또는 port에서 실행되면 Vite 실행 시 proxy target을 지정합니다.
+
+```sh
+VITE_BACKEND_PROXY_TARGET=http://127.0.0.1:3000 pnpm dev:frontend -- --host 0.0.0.0
+```
+
+브라우저가 직접 백엔드 origin을 호출해야 하는 환경에서는 빌드 또는 dev server 실행 시 `VITE_API_BASE_URL`을 지정합니다.
+
+```sh
+VITE_API_BASE_URL=http://<EC2_PUBLIC_IP>:3000 pnpm dev:frontend -- --host 0.0.0.0
+```
+
+현재 구현된 프론트엔드 화면:
+
+- Dashboard navigation과 Overview 화면.
+- Cluster summary card.
+- Kubernetes API 또는 metrics-server degraded source banner.
+- Active alert notification panel.
+- Recent events table.
+
+Nodes, Namespaces, Workloads, Pod detail 전체 화면은 후속 작업에서 같은 API client와 공통 table/filter component를 확장해 구현합니다.
 
 ## 단일 노드 Kubernetes 실행
 
