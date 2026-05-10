@@ -247,3 +247,26 @@ kubectl delete namespace k8s-monitor-alert-test
 - bearer token.
 - AWS credential.
 - Kubernetes Secret 값.
+
+## Release 전 검증
+
+MVP release 전에는 로컬 자동 검증과 실제 EC2 smoke test를 모두 통과해야 합니다.
+
+로컬 자동 검증:
+
+```sh
+pnpm format:check
+pnpm lint
+pnpm build
+pnpm test
+git diff --check
+```
+
+자동 테스트에는 프론트엔드 주요 화면 회귀, responsive CSS contract, 백엔드 Kubernetes read-only boundary 검사가 포함됩니다. read-only boundary 검사는 backend source가 Kubernetes create, replace, patch, delete client API와 Secret resource read API를 호출하지 않는지 확인합니다.
+
+수동 보안 확인:
+
+- API 응답과 브라우저 화면에 kubeconfig, bearer token, Slack webhook URL, Kubernetes Secret 값이 표시되지 않습니다.
+- Slack alert webhook URL은 환경 변수로만 제공하고 파일, 로그, commit에 남기지 않습니다.
+- `kubectl auth can-i create pods --all-namespaces`와 `kubectl auth can-i delete pods --all-namespaces`는 MVP runtime credential 기준으로 `no`가 기대값입니다.
+- 운영 클러스터에는 alert test resource를 만들지 않습니다.

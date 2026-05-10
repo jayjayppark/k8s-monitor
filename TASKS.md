@@ -46,7 +46,7 @@
 8. [x] #25 pod detail view를 구현합니다.
 9. [x] #26 events view 또는 recent events panel을 구현합니다.
 10. [x] #35 브라우저 alert banner/notification panel을 구현합니다.
-11. [ ] #27 frontend regression/responsive checks를 추가합니다.
+11. [x] #27 frontend regression/responsive checks를 추가합니다.
 
 ## 5. 실행 문서와 검증
 
@@ -55,4 +55,4 @@
 3. [ ] #30 EC2 단일 노드 Kubernetes smoke test를 실제 EC2 환경에서 실행합니다.
 4. [x] #36 Slack webhook 기반 alert 전송을 구현합니다.
 5. [x] #32 install, lint, typecheck, test를 실행하는 CI를 추가합니다.
-6. [ ] #31 MVP release 전 보안 경계와 읽기 전용 동작을 검증합니다.
+6. [x] #31 MVP release 전 보안 경계와 읽기 전용 동작을 검증합니다.

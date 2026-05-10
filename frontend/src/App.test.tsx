@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App.tsx";
 
-type FetchHandler = (url: URL) => unknown;
+type FetchHandler = (url: URL) => unknown | undefined;
 
 (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
@@ -165,12 +165,15 @@ async function renderApp(handler: FetchHandler): Promise<Root> {
 
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const url = new URL(String(input), "http://localhost");
+    const handledResponse = handler(url);
     const response =
       url.pathname === "/api/cluster/summary"
         ? summary
-        : url.pathname === "/api/alerts" || url.pathname === "/api/events"
-          ? { items: [] }
-          : handler(url);
+        : handledResponse !== undefined
+          ? handledResponse
+          : url.pathname === "/api/alerts" || url.pathname === "/api/events"
+            ? { items: [] }
+            : { items: [] };
 
     if (response instanceof Error) {
       return new Response(
@@ -414,5 +417,104 @@ describe("App resource views", () => {
         ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await waitForText("TEST_ERROR: Pod was not found");
+  });
+
+  it("renders overview alerts and recent events with degraded source context", async () => {
+    root = await renderApp((url) => {
+      if (url.pathname === "/api/alerts") {
+        return {
+          items: [
+            {
+              id: "node/worker-2/not-ready",
+              severity: "critical",
+              status: "active",
+              title: "Node worker-2 is NotReady",
+              message: "Node worker-2 has Ready condition False",
+              resource: {
+                kind: "Node",
+                namespace: null,
+                name: "worker-2",
+                uid: null,
+              },
+              startedAt: "2026-05-06T00:00:00.000Z",
+              lastSeenAt: "2026-05-06T00:00:00.000Z",
+            },
+          ],
+        };
+      }
+
+      if (url.pathname === "/api/events") {
+        return {
+          items: [
+            {
+              namespace: "default",
+              type: "Warning",
+              reason: "BackOff",
+              message: "Back-off restarting failed container",
+              involvedObject: {
+                kind: "Pod",
+                namespace: "default",
+                name: "crashy",
+                uid: "pod-uid",
+              },
+              count: 3,
+              lastTimestamp: "2026-05-06T00:00:00.000Z",
+            },
+          ],
+        };
+      }
+
+      return { items: [] };
+    });
+
+    await waitForText("Node worker-2 is NotReady");
+    expect(document.body.textContent).toContain("metrics-server");
+    expect(document.body.textContent).toContain("BackOff");
+    expect(document.body.textContent).toContain("Pod/crashy");
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "/api/events?limit=10",
+      expect.any(Object),
+    );
+  });
+
+  it("renders event filters and passes query parameters to the backend API", async () => {
+    root = await renderApp((url) => {
+      if (url.pathname === "/api/events") {
+        return {
+          items:
+            url.searchParams.get("type") === "Warning"
+              ? [
+                  {
+                    namespace: "default",
+                    type: "Warning",
+                    reason: "FailedScheduling",
+                    message: "0/1 nodes are available",
+                    involvedObject: {
+                      kind: "Pod",
+                      namespace: "default",
+                      name: "pending-pod",
+                      uid: "pod-uid",
+                    },
+                    count: 1,
+                    lastTimestamp: "2026-05-06T00:00:00.000Z",
+                  },
+                ]
+              : [],
+        };
+      }
+
+      return { items: [] };
+    });
+
+    await clickNav("Events");
+    await changeControl("Type", "Warning");
+    await waitForText("FailedScheduling");
+
+    expect(document.body.textContent).toContain("default");
+    expect(document.body.textContent).toContain("Pod/pending-pod");
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "/api/events?type=Warning&limit=50",
+      expect.any(Object),
+    );
   });
 });
