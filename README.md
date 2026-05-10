@@ -135,6 +135,56 @@ MVP 패키징 후에는 백엔드가 빌드된 프론트엔드를 함께 제공�
 패키징 후: http://<EC2_PUBLIC_IP>:3000
 ```
 
+## 알림 테스트용 장애 시나리오
+
+알림 기능을 검증하려면 의도적으로 문제가 있는 Kubernetes resource를 만들 수 있습니다. 이 명령은 EC2의 MVP 테스트용 단일 노드 클러스터에서만 실행합니다. 운영 클러스터에서는 실행하지 않습니다.
+
+테스트 resource는 전용 namespace에만 만듭니다.
+
+```sh
+kubectl create namespace k8s-monitor-alert-test
+```
+
+이미지를 가져올 수 없는 pod를 만들어 `ImagePullBackOff`와 warning event를 확인합니다.
+
+```sh
+kubectl -n k8s-monitor-alert-test run bad-image \
+  --image=ghcr.io/example/does-not-exist:never
+```
+
+계속 실패하는 pod를 만들어 restart 증가와 `CrashLoopBackOff` 계열 상태를 확인합니다.
+
+```sh
+kubectl -n k8s-monitor-alert-test run crash-loop \
+  --image=busybox:1.36 \
+  --restart=Always \
+  -- /bin/sh -c 'exit 1'
+```
+
+단일 노드에서 감당하기 어려운 resource request를 가진 pod를 만들어 `Pending` 또는 scheduling warning을 확인합니다.
+
+```sh
+kubectl -n k8s-monitor-alert-test run unschedulable \
+  --image=busybox:1.36 \
+  --requests='cpu=1000,memory=1000Gi' \
+  -- sleep 3600
+```
+
+상태와 event를 확인합니다.
+
+```sh
+kubectl -n k8s-monitor-alert-test get pods
+kubectl -n k8s-monitor-alert-test get events --sort-by=.lastTimestamp
+```
+
+테스트가 끝나면 반드시 정리합니다.
+
+```sh
+kubectl delete namespace k8s-monitor-alert-test
+```
+
+이 시나리오들은 브라우저 alert banner/notification panel과 Slack alert 전송이 동작하는지 확인하기 위한 것입니다. cleanup 없이 오래 두면 동일한 alert가 반복될 수 있으므로 Slack 전송에는 cooldown이 필요합니다.
+
 ## Slack으로 작업시키는 방법
 
 Slack에서는 GitHub Issue 단위로 일을 시키는 방식을 우선합니다.
