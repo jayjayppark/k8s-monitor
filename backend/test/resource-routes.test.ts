@@ -216,6 +216,7 @@ function createTestApp(reader = createReader()): FastifyInstance {
   return createApp({
     kubernetesHealthChecker: healthChecker,
     kubernetesResourceReader: reader,
+    slackAlertNotifier: null,
   });
 }
 
@@ -364,6 +365,27 @@ describe("resource API routes", () => {
         severity: "critical",
       }),
     ]);
+  });
+
+  it("keeps alert APIs successful when Slack delivery fails", async () => {
+    app = createApp({
+      kubernetesHealthChecker: healthChecker,
+      kubernetesResourceReader: createReader(),
+      logger: false,
+      slackAlertNotifier: {
+        async notify() {
+          throw new Error("network failure");
+        },
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/alerts",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data.items.length).toBeGreaterThan(0);
   });
 
   it("validates query parameters and maps missing pods to 404", async () => {

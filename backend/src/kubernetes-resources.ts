@@ -20,6 +20,7 @@ import {
   normalizePodDetail,
   normalizePodWorkloadItem,
   normalizeReplicaSetWorkloadItem,
+  normalizeResourceQuantities,
   normalizeServiceWorkloadItem,
   normalizeStatefulSetWorkloadItem,
   type EventDto,
@@ -28,6 +29,7 @@ import {
   type NodeDto,
   type PodDetailDto,
   type PodEventDto,
+  type ResourceQuantityDto,
   type WorkloadItemDto,
 } from "./kubernetes-normalizers.ts";
 
@@ -77,6 +79,35 @@ interface ResourceLists {
   events: CoreV1Event[];
 }
 
+interface MetricsObjectMeta {
+  name?: string;
+  namespace?: string;
+}
+
+interface NodeMetric {
+  metadata?: MetricsObjectMeta;
+  usage?: Record<string, string | undefined>;
+}
+
+interface PodContainerMetric {
+  name?: string;
+  usage?: Record<string, string | undefined>;
+}
+
+interface PodMetric {
+  metadata?: MetricsObjectMeta;
+  containers?: PodContainerMetric[];
+}
+
+interface MetricsList<TItem> {
+  items?: TItem[];
+}
+
+interface ResourceMetrics {
+  nodes: Map<string, ResourceQuantityDto>;
+  pods: Map<string, Map<string, ResourceQuantityDto>>;
+}
+
 function includesSearch(value: string, search: string | undefined): boolean {
   return !search || value.toLowerCase().includes(search.toLowerCase());
 }
@@ -92,6 +123,10 @@ function countByNamespace<T extends { metadata?: { namespace?: string } }>(
   }
 
   return counts;
+}
+
+function podMetricKey(namespace: string, name: string): string {
+  return `${namespace}/${name}`;
 }
 
 function filterNodes(
@@ -134,12 +169,21 @@ export class KubernetesClientResourceReader implements KubernetesResourceReader 
   public async getSnapshot(
     options: { eventLimit?: number } = {},
   ): Promise<KubernetesResourceSnapshot> {
-    const lists = await this.listRawResources();
+    const [lists, metrics] = await Promise.all([
+      this.listRawResources(),
+      this.listMetrics(),
+    ]);
     const podCounts = countByNamespace(lists.pods);
     const serviceCounts = countByNamespace(lists.services);
     const deploymentCounts = countByNamespace(lists.deployments);
     const now = new Date();
-    const nodes = lists.nodes.map((node) => normalizeNode(node, now));
+    const nodes = lists.nodes.map((node) =>
+      normalizeNode(
+        node,
+        now,
+        metrics.nodes.get(node.metadata?.name ?? "") ?? undefined,
+      ),
+    );
     const namespaces = lists.namespaces.map((namespace) =>
       normalizeNamespace(
         namespace,
@@ -209,6 +253,7 @@ export class KubernetesClientResourceReader implements KubernetesResourceReader 
         this.clients.core.readNamespacedPod({ name, namespace }),
         this.clients.core.listNamespacedEvent({ namespace }),
       ]);
+      const podMetrics = await this.readPodMetrics(namespace, name);
       const podEvents: PodEventDto[] = normalizeEventList(events.items ?? [], {
         involvedKind: "Pod",
         limit: 50,
@@ -222,7 +267,7 @@ export class KubernetesClientResourceReader implements KubernetesResourceReader 
           lastTimestamp: event.lastTimestamp,
         }));
 
-      return normalizePodDetail(pod, podEvents);
+      return normalizePodDetail(pod, podEvents, podMetrics);
     } catch (error) {
       if (typeof error === "object" && error !== null && "code" in error) {
         const code = String((error as { code: unknown }).code);
@@ -270,6 +315,109 @@ export class KubernetesClientResourceReader implements KubernetesResourceReader 
       daemonSets: daemonSets.items ?? [],
       events: events.items ?? [],
     };
+  }
+
+  private async listMetrics(): Promise<ResourceMetrics> {
+    const emptyMetrics: ResourceMetrics = {
+      nodes: new Map(),
+      pods: new Map(),
+    };
+
+    try {
+      const [nodeMetrics, podMetrics] = await Promise.all([
+        this.clients.customObjects.listClusterCustomObject({
+          group: "metrics.k8s.io",
+          version: "v1beta1",
+          plural: "nodes",
+        }) as Promise<MetricsList<NodeMetric>>,
+        this.clients.customObjects.listCustomObjectForAllNamespaces({
+          group: "metrics.k8s.io",
+          version: "v1beta1",
+          plural: "pods",
+        }) as Promise<MetricsList<PodMetric>>,
+      ]);
+
+      return {
+        nodes: this.mapNodeMetrics(nodeMetrics.items ?? []),
+        pods: this.mapPodMetrics(podMetrics.items ?? []),
+      };
+    } catch {
+      return emptyMetrics;
+    }
+  }
+
+  private async readPodMetrics(
+    namespace: string,
+    name: string,
+  ): Promise<Map<string, ResourceQuantityDto>> {
+    try {
+      const podMetrics =
+        (await this.clients.customObjects.getNamespacedCustomObject({
+          group: "metrics.k8s.io",
+          version: "v1beta1",
+          namespace,
+          plural: "pods",
+          name,
+        })) as PodMetric;
+
+      return this.mapPodMetricContainers(podMetrics);
+    } catch {
+      return new Map();
+    }
+  }
+
+  private mapNodeMetrics(
+    nodes: NodeMetric[],
+  ): Map<string, ResourceQuantityDto> {
+    const usageByNode = new Map<string, ResourceQuantityDto>();
+
+    for (const node of nodes) {
+      if (node.metadata?.name) {
+        usageByNode.set(
+          node.metadata.name,
+          normalizeResourceQuantities(node.usage),
+        );
+      }
+    }
+
+    return usageByNode;
+  }
+
+  private mapPodMetrics(
+    pods: PodMetric[],
+  ): Map<string, Map<string, ResourceQuantityDto>> {
+    const usageByPod = new Map<string, Map<string, ResourceQuantityDto>>();
+
+    for (const pod of pods) {
+      const namespace = pod.metadata?.namespace ?? "default";
+      const name = pod.metadata?.name;
+
+      if (name) {
+        usageByPod.set(
+          podMetricKey(namespace, name),
+          this.mapPodMetricContainers(pod),
+        );
+      }
+    }
+
+    return usageByPod;
+  }
+
+  private mapPodMetricContainers(
+    pod: PodMetric,
+  ): Map<string, ResourceQuantityDto> {
+    const usageByContainer = new Map<string, ResourceQuantityDto>();
+
+    for (const container of pod.containers ?? []) {
+      if (container.name) {
+        usageByContainer.set(
+          container.name,
+          normalizeResourceQuantities(container.usage),
+        );
+      }
+    }
+
+    return usageByContainer;
   }
 }
 

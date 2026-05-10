@@ -129,7 +129,7 @@ MVP 알림은 단순한 상태 기반 alert candidate로 시작합니다.
 - 최근 Warning event.
 - Kubernetes API unavailable 또는 metrics-server degraded.
 
-Slack 알림에는 kubeconfig, token, Secret 값, raw object 전체를 포함하지 않습니다. 같은 alert가 반복 전송되지 않도록 alert key와 cooldown을 둡니다.
+Slack 알림은 `SLACK_ALERT_WEBHOOK_URL`이 설정된 백엔드 프로세스에서만 활성화됩니다. 알림 본문에는 severity, title, resource reference, 짧은 message만 포함하고 kubeconfig, token, Secret 값, raw object 전체를 포함하지 않습니다. 같은 alert가 반복 전송되지 않도록 alert key와 `SLACK_ALERT_COOLDOWN_SECONDS` 기반 cooldown을 둡니다. Slack 전송 실패는 monitoring API 응답 실패로 전파하지 않습니다.
 
 ## EC2 검증 방식
 

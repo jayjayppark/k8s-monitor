@@ -28,6 +28,10 @@ import {
   DEFAULT_EVENT_LIMIT,
   MAX_EVENT_LIMIT,
 } from "./kubernetes-normalizers.ts";
+import {
+  createSlackAlertNotifierFromEnv,
+  type SlackAlertNotifier,
+} from "./slack-alerts.ts";
 
 export interface HealthResponse {
   status: "ok";
@@ -46,6 +50,7 @@ export interface CreateAppOptions {
   logger?: FastifyServerOptions["logger"];
   kubernetesHealthChecker?: KubernetesHealthChecker;
   kubernetesResourceReader?: KubernetesResourceReader;
+  slackAlertNotifier?: SlackAlertNotifier | null;
 }
 
 type AlertSeverity = "warning" | "critical";
@@ -436,6 +441,30 @@ function mapResourceError(error: unknown): ApiError {
   return createKubernetesUnavailableError();
 }
 
+async function notifySlackAlerts(
+  app: FastifyInstance,
+  slackAlertNotifier: SlackAlertNotifier | null,
+  alerts: AlertItem[],
+): Promise<void> {
+  if (!slackAlertNotifier) {
+    return;
+  }
+
+  try {
+    await slackAlertNotifier.notify(alerts);
+  } catch (error) {
+    app.log.warn(
+      {
+        err:
+          error instanceof Error
+            ? { name: error.name, message: error.message }
+            : undefined,
+      },
+      "failed to deliver Slack alerts",
+    );
+  }
+}
+
 export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   const app = Fastify({
     logger: options.logger ?? false,
@@ -444,6 +473,10 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     options.kubernetesHealthChecker ?? createDefaultKubernetesHealthChecker();
   const kubernetesResourceReader =
     options.kubernetesResourceReader ?? createDefaultKubernetesResourceReader();
+  const slackAlertNotifier =
+    options.slackAlertNotifier === undefined
+      ? createSlackAlertNotifierFromEnv()
+      : options.slackAlertNotifier;
 
   registerApiResponseHelpers(app);
 
@@ -469,6 +502,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
         metrics: health.metrics,
       };
       const alerts = calculateAlerts(snapshot, healthResponse);
+      await notifySlackAlerts(app, slackAlertNotifier, alerts);
 
       return reply.apiEnvelope(
         summarizeSnapshot(snapshot, alerts),
@@ -573,6 +607,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
         calculateAlerts(snapshot, healthResponse),
         request.query,
       );
+      await notifySlackAlerts(app, slackAlertNotifier, items);
 
       return reply.apiEnvelope({ items }, createMetaOptions(healthResponse));
     } catch (error) {

@@ -23,7 +23,7 @@
 3. [x] #9 Deployment와 ReplicaSet workload normalization을 구현합니다.
 4. [x] #10 StatefulSet, DaemonSet, Service workload normalization을 구현합니다.
 5. [x] #11 Event listing과 normalization을 구현합니다.
-6. [ ] #12 Node와 Pod metrics 조회 및 병합을 구현합니다.
+6. [x] #12 Node와 Pod metrics 조회 및 병합을 구현합니다.
 
 ## 3. 백엔드 API
 
@@ -53,6 +53,6 @@
 1. [x] #28 로컬/EC2 개발 설정을 문서화합니다.
 2. [x] #29 읽기 전용 Kubernetes RBAC 요구사항을 문서화합니다.
 3. [ ] #30 EC2 단일 노드 Kubernetes smoke test를 실제 EC2 환경에서 실행합니다.
-4. [ ] #36 Slack webhook 기반 alert 전송을 구현합니다.
+4. [x] #36 Slack webhook 기반 alert 전송을 구현합니다.
 5. [x] #32 install, lint, typecheck, test를 실행하는 CI를 추가합니다.
 6. [ ] #31 MVP release 전 보안 경계와 읽기 전용 동작을 검증합니다.

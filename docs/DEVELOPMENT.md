@@ -69,6 +69,12 @@ VITE_BACKEND_PROXY_TARGET=http://127.0.0.1:3000 pnpm dev:frontend
 VITE_API_BASE_URL=http://127.0.0.1:3000 pnpm dev:frontend
 ```
 
+Slack alert 전송은 선택 기능입니다. webhook URL은 파일에 저장하지 않고 실행 시 환경 변수로만 전달합니다. 같은 alert key는 기본 300초 동안 재전송하지 않습니다.
+
+```sh
+SLACK_ALERT_WEBHOOK_URL=<provided-at-runtime> SLACK_ALERT_COOLDOWN_SECONDS=300 KUBECONFIG=~/.kube/config pnpm dev:backend
+```
+
 ## EC2 개발 실행
 
 EC2 검증은 한 대의 EC2에서 K3s, 백엔드, 프론트엔드를 함께 실행하는 기준입니다.
@@ -203,6 +209,8 @@ curl http://127.0.0.1:3000/api/workloads
 curl "http://127.0.0.1:3000/api/events?limit=10"
 curl http://127.0.0.1:3000/api/alerts
 ```
+
+Slack alert 전송을 수동 검증할 때는 webhook URL을 환경 변수로만 주입하고, API와 로그에 URL 또는 token 값이 출력되지 않는지 확인합니다.
 
 프론트엔드 확인:
 

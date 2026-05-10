@@ -237,7 +237,7 @@ export function normalizeMemoryQuantity(
   };
 }
 
-function normalizeResourceQuantities(
+export function normalizeResourceQuantities(
   resources: Record<string, string | undefined> | undefined,
 ): ResourceQuantityDto {
   return {
@@ -402,7 +402,11 @@ function getNodeRoles(labels: Record<string, string> | undefined): string[] {
   return [...roles].sort();
 }
 
-export function normalizeNode(node: V1Node, now = new Date()): NodeDto {
+export function normalizeNode(
+  node: V1Node,
+  now = new Date(),
+  usage: ResourceQuantityDto = EMPTY_RESOURCE_QUANTITIES,
+): NodeDto {
   const readyCondition = node.status?.conditions?.find(
     (condition) => condition.type === "Ready",
   );
@@ -416,7 +420,7 @@ export function normalizeNode(node: V1Node, now = new Date()): NodeDto {
       node.status?.addresses?.find((address) => address.type === "InternalIP")
         ?.address ?? null,
     allocatable: normalizeResourceQuantities(node.status?.allocatable),
-    usage: EMPTY_RESOURCE_QUANTITIES,
+    usage,
     ageSeconds: calculateAgeSeconds(node.metadata, now),
   };
 }
@@ -600,6 +604,7 @@ export function normalizeEventList(
 export function normalizePodDetail(
   pod: V1Pod,
   events: PodEventDto[] = [],
+  containerUsage = new Map<string, ResourceQuantityDto>(),
 ): PodDetailDto {
   return {
     kind: "Pod",
@@ -625,7 +630,7 @@ export function normalizePodDetail(
           requests: normalizeResourceQuantities(container.resources?.requests),
           limits: normalizeResourceQuantities(container.resources?.limits),
         },
-        usage: EMPTY_RESOURCE_QUANTITIES,
+        usage: containerUsage.get(container.name) ?? EMPTY_RESOURCE_QUANTITIES,
       };
     }),
     events,
