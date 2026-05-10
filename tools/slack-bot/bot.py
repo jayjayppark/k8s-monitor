@@ -110,7 +110,9 @@ def post_thread_message(channel: str, thread_ts: str, text: str) -> None:
 def run_codex_and_reply(prompt: str, channel: str, thread_ts: str) -> None:
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     job_id = safe_thread_id(channel, thread_ts)
-    log_path = LOGS_DIR / f"{time.strftime('%Y%m%d-%H%M%S')}-{job_id}-codex.log"
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    log_path = LOGS_DIR / f"{timestamp}-{job_id}-codex.log"
+    final_path = LOGS_DIR / f"{timestamp}-{job_id}-final.md"
 
     process = subprocess.Popen(
         [
@@ -119,6 +121,8 @@ def run_codex_and_reply(prompt: str, channel: str, thread_ts: str) -> None:
             "-s",
             "danger-full-access",
             "--dangerously-bypass-approvals-and-sandbox",
+            "--output-last-message",
+            str(final_path),
             prompt,
         ],
         cwd=REPO_DIR,
@@ -141,13 +145,19 @@ def run_codex_and_reply(prompt: str, channel: str, thread_ts: str) -> None:
             active_jobs.pop(thread_ts, None)
 
     log_path.write_text(output or "", encoding="utf-8")
-    append_context(channel, thread_ts, "Codex", output or "")
+    final_message = (
+        final_path.read_text(encoding="utf-8").strip()
+        if final_path.exists()
+        else ""
+    )
+    reply = final_message or slack_excerpt(output or "")
+    append_context(channel, thread_ts, "AI", reply)
 
     status = "완료" if process.returncode == 0 else f"종료 코드 {process.returncode}"
     post_thread_message(
         channel,
         thread_ts,
-        f"AI 작업 {status}.\n로그: `{log_path.relative_to(REPO_DIR)}`\n```{slack_excerpt(output or '')}```",
+        f"AI 작업 {status}.\n로그: `{log_path.relative_to(REPO_DIR)}`\n\n{slack_excerpt(reply)}",
     )
 
 
