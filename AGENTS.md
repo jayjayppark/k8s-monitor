@@ -7,12 +7,12 @@
 ## 작업 규칙
 
 - 변경 전 현재 문서를 먼저 확인합니다: `docs/PRODUCT_SPEC.md`, `docs/ARCHITECTURE.md`, `docs/API_CONTRACT.md`, `TASKS.md`.
-- Slack으로 실행되는 Codex 작업은 핵심 문서를 우선 컨텍스트로 사용하고, 작업별로 필요한 파일만 추가로 탐색합니다.
+- Slack으로 실행되는 AI 작업은 핵심 문서를 우선 컨텍스트로 사용하고, 작업별로 필요한 파일만 추가로 탐색합니다.
 - GitHub Issue가 지정된 작업은 해당 issue 본문과 acceptance criteria를 먼저 확인합니다.
-- issue 번호 없이 “다음 작업을 골라라”는 요청을 받으면 open issue와 `TASKS.md`를 비교해 추천만 하고, 사용자가 실행을 요청하기 전에는 구현하지 않습니다.
-- `run issue` 작업은 관련 테스트를 추가/수정하고 가능한 검증 명령을 실행한 뒤, 통과한 경우에만 conventional commit 형식으로 commit합니다.
-- `ask codex` 작업은 기본적으로 답변/분석용이며, 사용자가 명시하지 않으면 파일 수정, commit, push를 하지 않습니다.
-- push는 사용자가 명시적으로 요청한 경우에만 합니다.
+- Slack 입력이 질문, 분석, 추천 요청이면 파일 수정 없이 답변합니다.
+- Slack 입력이 구현, 수정, 문서화, issue 처리, 실행 요청이면 실제 작업을 수행합니다.
+- Slack 작업에서 파일을 수정했다면 관련 테스트/검증을 실행하고, 통과한 경우에만 conventional commit 형식으로 commit한 뒤 push합니다.
+- 테스트 또는 필수 검증이 실패하면 commit/push하지 않고 실패 내용을 보고합니다.
 - 구현으로 요구사항, API, 아키텍처, 실행 방법이 바뀌면 관련 문서를 현재 기준으로 바로 수정합니다.
 - 문서에는 변경 히스토리를 누적하지 않습니다. 바뀐 뒤의 최신 기준만 남깁니다.
 - 백엔드만 Kubernetes API와 직접 통신합니다.
@@ -22,7 +22,7 @@
 - Prometheus 통합은 MVP 범위 밖입니다.
 - `sudo`를 실행하지 않습니다.
 - AWS 구성을 변경하지 않습니다.
-- 명시적으로 요청받지 않는 한 GitHub에 push하지 않습니다.
+- Slack 작업에서 검증이 통과한 구현 변경은 push합니다. 그 외에는 명시적으로 요청받지 않는 한 push하지 않습니다.
 - Slack webhook URL, token, kubeconfig 내용, bearer token, AWS credential 또는 기타 secret을 파일에 쓰지 않습니다.
 
 ## 현재 기술 방향
@@ -45,7 +45,7 @@
 - `docs/ARCHITECTURE.md`: 현재 런타임 아키텍처와 EC2/Kubernetes 검증 방식.
 - `docs/API_CONTRACT.md`: 백엔드/프론트엔드 API 계약.
 - `TASKS.md`: 구현 순서와 남은 작업.
-- `tools/slack-bot/`: Slack에서 Codex 작업을 실행하는 로컬 봇.
+- `tools/slack-bot/`: Slack에서 AI 작업을 실행하는 로컬 봇.
 
 ## 완료 기준
 

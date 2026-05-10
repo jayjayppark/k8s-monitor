@@ -20,7 +20,7 @@ MVP는 EC2 한 대에서 단일 노드 Kubernetes를 실행하고, 같은 EC2에
 ├── packages/shared/     # 백엔드/프론트엔드 공유 DTO 타입
 ├── docs/                # 제품 기준, 아키텍처, API 계약
 ├── scripts/             # 운영 보조 스크립트
-└── tools/slack-bot/     # Slack에서 Codex를 실행하는 로컬 봇
+└── tools/slack-bot/     # Slack에서 AI 작업을 실행하는 로컬 봇
 ```
 
 ## 개발 명령
@@ -187,28 +187,30 @@ kubectl delete namespace k8s-monitor-alert-test
 
 ## Slack으로 작업시키는 방법
 
-Slack에서는 GitHub Issue 단위로 일을 시키는 방식을 우선합니다.
+Slack에서는 봇을 멘션하고 자연어로 질문하거나 작업을 지시합니다. 별도의 하위 명령은 사용하지 않습니다.
 
 ```text
 @AI Devbox Bot issues
-@AI Devbox Bot run issue 33
+@AI Devbox Bot issue 34 처리해줘
+@AI Devbox Bot 다음에 할 일 추천해줘
+@AI Devbox Bot 현재 아키텍처 기준으로 백엔드부터 구현해줘
 ```
 
-`run issue`는 구현 작업용입니다. 봇은 핵심 문서와 issue 본문을 Codex prompt에 넣고, 가능한 테스트/검증을 실행한 뒤 통과하면 commit까지 하도록 지시합니다. push는 명시적으로 요청한 경우에만 합니다.
+봇은 핵심 문서와 언급된 GitHub Issue 본문을 AI 작업 컨텍스트에 넣습니다. 같은 Slack thread의 이전 대화도 작업 컨텍스트로 이어집니다.
 
-“가장 먼저 해야 할 일을 골라서 해라”처럼 시킬 수도 있지만, 더 안정적인 방식은 issue 번호를 명시하는 것입니다.
+질문이면 같은 thread에 답변만 합니다. 구현/수정 작업이면 가능한 테스트/검증을 실행하고, 통과하면 commit과 push까지 하도록 지시합니다. 테스트 또는 필수 검증이 실패하면 commit/push하지 않고 실패 내용을 보고합니다.
+
+“가장 먼저 해야 할 일을 골라서 해라”처럼 시킬 수도 있습니다. 추천만 받고 싶으면 파일을 수정하지 말라고 명시합니다.
 
 ```text
-@AI Devbox Bot ask codex GitHub issue들을 보고 현재 TASKS.md 기준으로 다음에 해야 할 issue를 추천해줘. 파일은 수정하지 마.
+@AI Devbox Bot GitHub issue들과 TASKS.md를 보고 다음에 해야 할 issue를 추천해줘. 파일은 수정하지 마.
 ```
 
-그 다음 선택한 issue를 실행합니다.
+그 다음 선택한 issue를 자연어로 실행합니다.
 
 ```text
-@AI Devbox Bot run issue 3
+@AI Devbox Bot issue 3 처리해줘
 ```
-
-분석이나 추천만 필요하면 `ask codex`를 사용합니다. 이 명령은 기본적으로 파일 수정과 commit을 하지 않는 용도입니다.
 
 Slack bot은 같은 Slack thread의 이전 대화를 컨텍스트로 저장합니다. 작업 주제가 바뀌면 새 thread를 사용하거나 아래 명령으로 thread context를 지웁니다.
 
@@ -216,7 +218,7 @@ Slack bot은 같은 Slack thread의 이전 대화를 컨텍스트로 저장합�
 @AI Devbox Bot reset context
 ```
 
-Codex 작업에는 항상 핵심 문서가 컨텍스트로 들어가는 것이 좋습니다. 이 개선은 #33에서 처리합니다. 그 전까지는 prompt에 관련 문서를 읽으라고 지시하지만, 문서 본문을 항상 자동 주입하지는 않습니다.
+AI 작업에는 항상 핵심 문서가 컨텍스트로 들어갑니다.
 
 ## 문서
 

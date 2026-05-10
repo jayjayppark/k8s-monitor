@@ -77,8 +77,19 @@ def read_issue(issue_number: str) -> str:
     return run_shell(f"gh issue view {issue_number}", timeout=20)
 
 
-def has_context(channel: str, thread_ts: str) -> bool:
-    return context_path(channel, thread_ts).exists()
+def referenced_issue_numbers(text: str) -> list[str]:
+    return list(
+        dict.fromkeys(
+            re.findall(r"(?:#|issue\s+|이슈\s*)(\d+)", text, flags=re.IGNORECASE)
+        )
+    )
+
+
+def read_referenced_issues(text: str) -> str:
+    sections = []
+    for issue_number in referenced_issue_numbers(text):
+        sections.append(f"## GitHub Issue #{issue_number}\n\n{read_issue(issue_number)}")
+    return "\n\n".join(sections)
 
 
 def reset_context(channel: str, thread_ts: str) -> None:
@@ -89,7 +100,7 @@ def reset_context(channel: str, thread_ts: str) -> None:
 
 def slack_excerpt(output: str) -> str:
     output = output.strip()
-    return output[-MAX_SLACK_CHARS:] if output else "(Codex output 없음)"
+    return output[-MAX_SLACK_CHARS:] if output else "(AI output 없음)"
 
 
 def post_thread_message(channel: str, thread_ts: str, text: str) -> None:
@@ -117,7 +128,7 @@ def run_codex_and_reply(prompt: str, channel: str, thread_ts: str) -> None:
     except subprocess.TimeoutExpired:
         process.kill()
         output, _ = process.communicate()
-        output = f"{output or ''}\n\nCodex 작업이 2시간 제한을 넘어 중단됐습니다."
+        output = f"{output or ''}\n\nAI 작업이 2시간 제한을 넘어 중단됐습니다."
     finally:
         with active_jobs_lock:
             active_jobs.pop(thread_ts, None)
@@ -129,14 +140,14 @@ def run_codex_and_reply(prompt: str, channel: str, thread_ts: str) -> None:
     post_thread_message(
         channel,
         thread_ts,
-        f"Codex 작업 {status}.\n로그: `{log_path.relative_to(REPO_DIR)}`\n```{slack_excerpt(output or '')}```",
+        f"AI 작업 {status}.\n로그: `{log_path.relative_to(REPO_DIR)}`\n```{slack_excerpt(output or '')}```",
     )
 
 
 def start_codex_job(prompt: str, channel: str, thread_ts: str) -> str:
     with active_jobs_lock:
         if thread_ts in active_jobs:
-            return "이 Slack 스레드에서 이미 Codex 작업이 실행 중입니다. 완료 후 다시 말하거나 `stop`으로 중단하세요."
+            return "이 Slack 스레드에서 이미 AI 작업이 실행 중입니다. 완료 후 다시 말하거나 `stop`으로 중단하세요."
         active_jobs[thread_ts] = None
 
     thread = threading.Thread(
@@ -145,48 +156,21 @@ def start_codex_job(prompt: str, channel: str, thread_ts: str) -> str:
         daemon=True,
     )
     thread.start()
-    return "Codex 작업을 시작했습니다. 완료되면 이 스레드에 결과를 남기겠습니다."
+    return "AI 작업을 시작했습니다. 완료되면 이 스레드에 결과를 남기겠습니다."
 
 
 def build_codex_prompt(
     user_prompt: str,
     channel: str,
     thread_ts: str,
-    mode: str,
-    issue_number: str | None = None,
 ) -> str:
     previous_context = read_context(channel, thread_ts)
     core_docs = read_core_docs()
-    issue_context = read_issue(issue_number) if issue_number else ""
-    mode_rules = {
-        "ask": """
-- 기본적으로 답변, 분석, 추천만 한다.
-- 사용자가 명시적으로 파일 수정을 요청하지 않았다면 파일을 수정하지 않는다.
-- commit과 push를 하지 않는다.
-""",
-        "run": """
-- 사용자의 후속 답변을 반영해 이전 작업을 이어간다.
-- 파일 수정이 필요하면 수정하되, commit과 push는 하지 않는다.
-- 구현 방향 확인이 필요하면 `USER_INPUT_REQUIRED` 아래에 질문만 남기고 멈춘다.
-""",
-        "issue": """
-- 지정된 GitHub Issue의 acceptance criteria를 만족시키는 구현 작업을 수행한다.
-- 필요한 테스트 코드를 추가하거나, 테스트가 필요 없는 이유를 완료 보고에 명확히 적는다.
-- 가능한 검증 명령을 실행한다.
-- 테스트 또는 필수 검증이 실패하면 commit하지 않는다.
-- 검증이 통과하면 관련 파일만 stage하고 conventional commit 형식으로 commit한다.
-- push는 사용자가 명시적으로 요청한 경우에만 한다.
-""",
-    }
-    mode_rule = mode_rules.get(mode, mode_rules["ask"]).strip()
-    issue_section = (
-        f"\n\nGitHub Issue #{issue_number}:\n{issue_context}\n"
-        if issue_number
-        else ""
-    )
+    issue_context = read_referenced_issues(user_prompt)
+    issue_section = f"\n\n참조된 GitHub Issue:\n{issue_context}\n" if issue_context else ""
 
     return f"""
-사용자가 Slack에서 Codex에게 요청했다.
+사용자가 Slack에서 AI에게 요청했다.
 
 이번 사용자 입력:
 {user_prompt}
@@ -199,21 +183,27 @@ def build_codex_prompt(
 {previous_context or "(이전 컨텍스트 없음)"}
 
 작업 규칙:
-{mode_rule}
-- issue 범위를 넘기지 마라.
+- 사용자의 입력이 질문, 분석, 추천 요청이면 파일을 수정하지 말고 같은 Slack thread에 답할 최종 답변만 작성해라.
+- 사용자의 입력이 구현, 수정, 문서화, issue 처리, 실행 요청이면 실제 작업을 수행해라.
+- GitHub Issue 번호가 언급되면 해당 issue 본문과 acceptance criteria를 작업 범위로 삼아라.
+- 작업 범위를 넘기지 마라.
 - 구현으로 요구사항, API, 아키텍처, 실행 방법이 바뀌면 관련 문서를 현재 기준으로 수정해라.
 - secret 값, Slack webhook URL, GitHub token, kubeconfig 내용은 출력하거나 파일에 저장하거나 커밋하지 마라.
 - 운영 Kubernetes 클러스터에 변경을 적용하는 kubectl apply/delete/scale/rollout 작업은 하지 마라.
 - 구현 방향 확인이 필요해서 더 진행하면 위험하면, 작업을 멈추고 `USER_INPUT_REQUIRED` 제목 아래에 사용자가 답해야 할 질문만 명확히 적어라.
 - 사용자가 이전 `USER_INPUT_REQUIRED`에 답했다면, 그 답을 반영해서 이어서 작업해라.
-- commit 전에는 `git diff --check`와 관련 테스트/검증 명령을 실행해라.
+- 파일을 수정했다면 관련 테스트 코드를 추가/수정하거나 테스트가 필요 없는 이유를 완료 보고에 적어라.
+- 파일을 수정했다면 `git diff --check`와 가능한 테스트/검증 명령을 실행해라.
+- 테스트 또는 필수 검증이 실패하면 commit과 push를 하지 마라.
+- 검증이 통과하면 관련 파일만 stage하고 conventional commit 형식으로 commit한 뒤 현재 branch를 origin에 push해라.
+- 답변만 한 경우에는 commit/push를 하지 마라.
 
 완료 보고에 포함할 것:
 - 수행한 작업 또는 답변
 - 변경한 파일 목록
 - 실행한 명령
 - 테스트/검증 결과
-- commit hash 또는 commit하지 않은 이유
+- commit hash와 push 결과, 또는 commit/push하지 않은 이유
 - 남은 질문
 """
 
@@ -230,8 +220,9 @@ def handle_app_mention(event, say):
             "사용법:\n"
             "`@AI Devbox Bot status`\n"
             "`@AI Devbox Bot issues`\n"
-            "`@AI Devbox Bot run issue 1`\n"
-            "`@AI Devbox Bot ask codex <작업 지시>`\n"
+            "`@AI Devbox Bot issue 3 처리해줘`\n"
+            "`@AI Devbox Bot 다음에 할 일 추천해줘`\n"
+            "`@AI Devbox Bot <질문 또는 작업 지시>`\n"
             "`@AI Devbox Bot reset context`\n"
             "`@AI Devbox Bot stop`\n"
             "`@AI Devbox Bot logs`"
@@ -273,9 +264,9 @@ def handle_app_mention(event, say):
 
         if process:
             process.terminate()
-            say("이 Slack 스레드의 Codex 작업에 중단 신호를 보냈습니다.", thread_ts=thread_ts)
+            say("이 Slack 스레드의 AI 작업에 중단 신호를 보냈습니다.", thread_ts=thread_ts)
         elif thread_ts in active_jobs:
-            say("Codex 작업이 시작 준비 중입니다. 잠시 후 다시 `stop`을 보내세요.", thread_ts=thread_ts)
+            say("AI 작업이 시작 준비 중입니다. 잠시 후 다시 `stop`을 보내세요.", thread_ts=thread_ts)
         else:
             output = run_shell(
                 f"tmux kill-session -t {SESSION_NAME} 2>/dev/null "
@@ -285,38 +276,10 @@ def handle_app_mention(event, say):
             say(f"```{output}```", thread_ts=thread_ts)
         return
 
-    match = re.match(r"run issue\s+(\d+)", text)
-    if match:
-        issue_number = match.group(1)
-        append_context(channel, thread_ts, "User", text)
-        prompt = build_codex_prompt(
-            f"GitHub Issue #{issue_number}를 처리해라.",
-            channel,
-            thread_ts,
-            "issue",
-            issue_number=issue_number,
-        )
-        say(start_codex_job(prompt, channel, thread_ts), thread_ts=thread_ts)
-        return
-
-    if text.startswith("ask codex "):
-        user_prompt = text[len("ask codex "):].strip()
-        append_context(channel, thread_ts, "User", user_prompt)
-        prompt = build_codex_prompt(user_prompt, channel, thread_ts, "ask")
-        say(start_codex_job(prompt, channel, thread_ts), thread_ts=thread_ts)
-        return
-
-    if has_context(channel, thread_ts):
-        append_context(channel, thread_ts, "User", text)
-        prompt = build_codex_prompt(text, channel, thread_ts, "run")
-        say(start_codex_job(prompt, channel, thread_ts), thread_ts=thread_ts)
-        return
-
-    say(
-        "알 수 없는 명령입니다.\n"
-        "`@AI Devbox Bot help`를 입력해 사용법을 확인하세요.",
-        thread_ts=thread_ts,
-    )
+    user_prompt = re.sub(r"^ask\s+", "", text, flags=re.IGNORECASE).strip()
+    append_context(channel, thread_ts, "User", user_prompt)
+    prompt = build_codex_prompt(user_prompt, channel, thread_ts)
+    say(start_codex_job(prompt, channel, thread_ts), thread_ts=thread_ts)
 
 
 if __name__ == "__main__":
