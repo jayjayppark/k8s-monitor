@@ -40,6 +40,7 @@ Kubernetes cluster
 ├── frontend/            # React + Vite 프론트엔드
 ├── packages/shared/     # 공유 DTO 타입
 ├── docs/                # 제품 기준, 아키텍처, API 계약
+├── .github/workflows/   # CI 검증
 ├── scripts/             # 보조 스크립트
 └── tools/slack-bot/     # Slack 기반 Codex 실행 도구
 ```
@@ -154,6 +155,17 @@ EC2 dev box에는 아래 항목이 필요합니다.
 - Python virtualenv: `tools/slack-bot` 실행에 사용합니다.
 
 자동 설치 스크립트는 아직 없습니다. 설치 자동화가 필요해지면 `scripts/` 아래에 추가하되, AWS 설정 변경이나 secret 작성은 포함하지 않습니다.
+
+구체적인 로컬/EC2 실행 명령, 읽기 전용 RBAC 예시, smoke test 절차는 `docs/DEVELOPMENT.md`를 기준으로 합니다.
+
+## CI 검증
+
+GitHub Actions는 pull request와 `main` branch push에서 실행됩니다.
+
+- Node.js 22와 pnpm 10.10.0을 사용합니다.
+- `pnpm install --frozen-lockfile`로 의존성을 설치합니다.
+- `pnpm format:check`, `pnpm lint`, `pnpm build`, `pnpm test`를 실행합니다.
+- CI는 Kubernetes cluster나 AWS credential을 요구하지 않습니다.
 
 ## 패키징 방향
 

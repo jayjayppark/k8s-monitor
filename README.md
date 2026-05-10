@@ -6,12 +6,10 @@ MVP는 EC2 한 대에서 단일 노드 Kubernetes를 실행하고, 같은 EC2에
 
 ## 진행 상황
 
-- 스택 선택 완료: TypeScript, Fastify, React, Vite, pnpm workspace.
-- 워크스페이스 스캐폴드 완료: `backend`, `frontend`, `packages/shared`.
-- 제품 요구사항, 아키텍처, API 계약 초안 작성 완료.
-- 백엔드 Fastify 서버 skeleton과 `/api/health` 구현 완료.
-- kubeconfig 또는 in-cluster service account 기반 Kubernetes client 초기화와 health connectivity check 구현 완료.
-- 프론트엔드 React + Vite app shell, 백엔드 API client, overview dashboard, alert panel, recent events panel 구현 완료.
+- TypeScript, Fastify, React, Vite, pnpm workspace 기반 monorepo입니다.
+- 백엔드는 kubeconfig 또는 in-cluster service account 기반으로 Kubernetes API와 metrics API 상태를 조회합니다.
+- 프론트엔드는 백엔드 API만 호출하며 dashboard, nodes, namespaces, workloads, pod detail, events, alert panel을 제공합니다.
+- CI는 pnpm install, format check, lint/typecheck, build, test를 실행합니다.
 
 ## 저장소 구조
 
@@ -35,6 +33,7 @@ pnpm dev:frontend
 pnpm build
 pnpm test
 pnpm lint
+pnpm format:check
 pnpm format
 ```
 
@@ -122,40 +121,12 @@ VITE_API_BASE_URL=http://<EC2_PUBLIC_IP>:3000 pnpm dev:frontend -- --host 0.0.0.
 - Kubernetes API 또는 metrics-server degraded source banner.
 - Active alert notification panel.
 - Recent events table.
+- Nodes, Namespaces, Workloads, Events 화면.
+- Workloads 화면의 Pod detail panel.
 
-Nodes, Namespaces, Workloads, Pod detail 전체 화면은 후속 작업에서 같은 API client와 공통 table/filter component를 확장해 구현합니다.
+## 개발과 EC2 검증
 
-## 단일 노드 Kubernetes 실행
-
-MVP 검증용 Kubernetes는 EC2에 K3s 단일 서버 노드로 설치하는 방식을 우선합니다. K3s 공식 quick-start는 설치 스크립트 방식의 단일 서버 실행을 안내합니다: <https://docs.k3s.io/quick-start>
-
-필요한 도구:
-
-- Node.js 22 이상.
-- pnpm.
-- curl.
-- K3s.
-- kubectl.
-- GitHub CLI는 issue 기반 작업에만 필요합니다.
-
-아직 자동 설치 스크립트는 없습니다. 설치 자동화가 필요해지면 별도 script 또는 문서로 추가합니다.
-
-설치 예시:
-
-```sh
-curl -sfL https://get.k3s.io | sh -
-```
-
-일반 사용자로 `kubectl`을 실행하려면 kubeconfig 접근 권한을 별도로 설정합니다. 예시는 환경마다 다를 수 있으므로 실제 EC2 보안 기준에 맞게 적용합니다.
-
-```sh
-mkdir -p ~/.kube
-sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
-sudo chown "$USER:$USER" ~/.kube/config
-kubectl get nodes
-```
-
-K3s에는 metrics-server가 기본 포함될 수 있습니다. metrics-server가 없거나 동작하지 않는 경우에도 MVP는 리소스 인벤토리를 보여주고 metrics 관련 값만 unavailable/degraded로 표시해야 합니다.
+로컬 실행, EC2 실행, 읽기 전용 RBAC, smoke test 절차는 `docs/DEVELOPMENT.md`를 기준으로 합니다.
 
 ## EC2 보안 그룹과 접속
 
@@ -268,6 +239,7 @@ AI 작업에는 항상 핵심 문서가 컨텍스트로 들어갑니다.
 - `docs/PRODUCT_SPEC.md`: MVP 제품 범위와 화면 요구사항.
 - `docs/ARCHITECTURE.md`: 현재 아키텍처와 실행/검증 방식.
 - `docs/API_CONTRACT.md`: 백엔드와 프론트엔드 사이의 API 계약.
+- `docs/DEVELOPMENT.md`: 로컬/EC2 실행, RBAC 요구사항, smoke test 절차.
 - `TASKS.md`: 현재 구현 순서.
 
 구현 중 요구사항이나 동작이 바뀌면 변경 이력을 따로 누적하지 말고, 관련 문서의 현재 기준 내용을 바로 수정합니다.
