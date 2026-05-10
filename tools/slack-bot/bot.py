@@ -113,7 +113,14 @@ def run_codex_and_reply(prompt: str, channel: str, thread_ts: str) -> None:
     log_path = LOGS_DIR / f"{time.strftime('%Y%m%d-%H%M%S')}-{job_id}-codex.log"
 
     process = subprocess.Popen(
-        ["codex", "exec", "-s", "danger-full-access", "-a", "never", prompt],
+        [
+            "codex",
+            "exec",
+            "-s",
+            "danger-full-access",
+            "--dangerously-bypass-approvals-and-sandbox",
+            prompt,
+        ],
         cwd=REPO_DIR,
         text=True,
         stdout=subprocess.PIPE,
