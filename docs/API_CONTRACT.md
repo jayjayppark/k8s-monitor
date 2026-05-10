@@ -1,13 +1,13 @@
-# API Contract
+# API 계약
 
-## Principles
+## 원칙
 
-- API is read-only for the MVP.
-- Frontend receives normalized DTOs, not raw Kubernetes objects.
-- Every response that depends on Kubernetes data includes freshness and source status.
-- Missing metrics are represented as `null` values plus a warning, not as a hard failure for inventory endpoints.
+- API는 MVP에서 read-only입니다.
+- 프론트엔드는 raw Kubernetes object가 아니라 정규화된 DTO를 받습니다.
+- Kubernetes data에 의존하는 모든 응답은 freshness와 source status를 포함합니다.
+- missing metrics는 inventory endpoint의 hard failure가 아니라 `null` 값과 warning으로 표현합니다.
 
-## Common Types
+## 공통 타입
 
 ### Envelope
 
@@ -45,7 +45,7 @@
 }
 ```
 
-CPU values should use millicores as the normalized unit. Memory values should use bytes.
+CPU 값은 정규화 단위로 millicores를 사용해야 합니다. Memory 값은 bytes를 사용해야 합니다.
 
 ### ResourceRef
 
@@ -70,13 +70,13 @@ CPU values should use millicores as the normalized unit. Memory values should us
 }
 ```
 
-## Endpoints
+## 엔드포인트
 
 ### `GET /api/health`
 
-Returns backend process health and Kubernetes connectivity.
+백엔드 프로세스 health와 Kubernetes connectivity를 반환합니다.
 
-Response:
+응답:
 
 ```json
 {
@@ -93,9 +93,9 @@ Response:
 
 ### `GET /api/cluster/summary`
 
-Returns high-level cluster status.
+상위 수준의 cluster status를 반환합니다.
 
-Response data:
+응답 데이터:
 
 ```json
 {
@@ -129,12 +129,12 @@ Response data:
 
 ### `GET /api/nodes`
 
-Query parameters:
+쿼리 파라미터:
 
-- `status`: optional `ready` or `notReady`.
-- `search`: optional case-insensitive name search.
+- `status`: 선택 사항. `ready` 또는 `notReady`.
+- `search`: 선택 사항. 대소문자를 구분하지 않는 이름 검색.
 
-Response data:
+응답 데이터:
 
 ```json
 {
@@ -161,7 +161,7 @@ Response data:
 
 ### `GET /api/namespaces`
 
-Response data:
+응답 데이터:
 
 ```json
 {
@@ -182,14 +182,14 @@ Response data:
 
 ### `GET /api/workloads`
 
-Query parameters:
+쿼리 파라미터:
 
-- `namespace`: optional namespace.
-- `kind`: optional `Pod`, `Deployment`, `ReplicaSet`, `StatefulSet`, `DaemonSet`, or `Service`.
-- `status`: optional status string.
-- `search`: optional case-insensitive name search.
+- `namespace`: 선택 사항. namespace.
+- `kind`: 선택 사항. `Pod`, `Deployment`, `ReplicaSet`, `StatefulSet`, `DaemonSet`, 또는 `Service`.
+- `status`: 선택 사항. status string.
+- `search`: 선택 사항. 대소문자를 구분하지 않는 이름 검색.
 
-Response data:
+응답 데이터:
 
 ```json
 {
@@ -213,9 +213,9 @@ Response data:
 
 ### `GET /api/pods/{namespace}/{name}`
 
-Returns pod detail.
+pod detail을 반환합니다.
 
-Response data:
+응답 데이터:
 
 ```json
 {
@@ -263,14 +263,14 @@ Response data:
 
 ### `GET /api/events`
 
-Query parameters:
+쿼리 파라미터:
 
-- `namespace`: optional namespace.
-- `type`: optional `Normal` or `Warning`.
-- `involvedKind`: optional Kubernetes kind.
-- `limit`: optional maximum event count, default `50`.
+- `namespace`: 선택 사항. namespace.
+- `type`: 선택 사항. `Normal` 또는 `Warning`.
+- `involvedKind`: 선택 사항. Kubernetes kind.
+- `limit`: 선택 사항. 최대 event count이며 기본값은 `50`입니다.
 
-Response data:
+응답 데이터:
 
 ```json
 {
@@ -293,14 +293,14 @@ Response data:
 }
 ```
 
-## Status Codes
+## 상태 코드
 
-- `200`: Successful response. May include degraded source status.
-- `400`: Invalid query parameter.
-- `404`: Requested resource was not found.
-- `503`: Backend cannot reach required Kubernetes API for the requested operation.
-- `500`: Unexpected backend error.
+- `200`: 성공 응답입니다. degraded source status가 포함될 수 있습니다.
+- `400`: query parameter가 유효하지 않습니다.
+- `404`: 요청한 resource를 찾을 수 없습니다.
+- `503`: 백엔드가 요청된 작업에 필요한 Kubernetes API에 도달할 수 없습니다.
+- `500`: 예상하지 못한 백엔드 error입니다.
 
-## Versioning
+## 버전 관리
 
-MVP endpoints live under `/api`. If breaking changes are needed after MVP, introduce `/api/v1` before external consumers depend on the contract.
+MVP endpoint는 `/api` 아래에 둡니다. MVP 이후 breaking change가 필요하면 외부 사용자가 contract에 의존하기 전에 `/api/v1`을 도입합니다.

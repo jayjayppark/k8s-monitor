@@ -1,95 +1,95 @@
-# MVP Requirements
+# MVP 요구사항
 
-## Goal
+## 목표
 
-Build a lightweight web application that monitors one Kubernetes cluster. The MVP should help a user quickly understand cluster health, node and workload status, and basic CPU/memory usage without installing in-cluster collectors or agents.
+하나의 Kubernetes 클러스터를 모니터링하는 경량 웹 애플리케이션을 만듭니다. MVP는 in-cluster collector 또는 agent를 설치하지 않고도 사용자가 클러스터 health, node 및 workload 상태, 기본 CPU/memory 사용량을 빠르게 파악할 수 있게 해야 합니다.
 
-## Users
+## 사용자
 
-- A developer or platform engineer who already has access to a Kubernetes cluster.
-- A small team that needs a simple dashboard before adopting a full observability stack.
+- 이미 Kubernetes 클러스터 접근 권한을 가진 개발자 또는 platform engineer.
+- 전체 observability stack을 도입하기 전에 단순한 dashboard가 필요한 소규모 팀.
 
-## Scope
+## 범위
 
-### In Scope
+### 포함 범위
 
-- Monitor exactly one Kubernetes cluster per backend instance.
-- Backend connects directly to the Kubernetes API.
-- Frontend reads all monitoring data from the backend API.
-- Display cluster summary:
-  - Kubernetes version if available.
-  - Node count by readiness.
-  - Namespace count.
-  - Pod count by phase.
-  - Recent warning events.
-- Display node inventory:
-  - Name, readiness, roles, Kubernetes version.
-  - Internal IP if available.
-  - Allocatable CPU and memory.
-  - Current CPU and memory usage when metrics-server is available.
-- Display namespace inventory:
-  - Namespace name.
-  - Status.
-  - Age.
-  - Basic workload counts.
-- Display workload inventory for Pods, Deployments, ReplicaSets, StatefulSets, DaemonSets, and Services:
-  - Name, namespace, status, readiness, restarts where applicable.
-  - Labels and owner references in summarized form.
-- Display pod detail:
-  - Containers and readiness.
-  - Restart counts.
-  - Node assignment.
-  - Recent related events.
-  - Resource requests and limits when specified.
-  - Current CPU and memory usage when metrics-server is available.
-- Provide simple filters:
+- 백엔드 인스턴스 하나당 정확히 하나의 Kubernetes 클러스터를 모니터링합니다.
+- 백엔드는 Kubernetes API에 직접 연결합니다.
+- 프론트엔드는 모든 모니터링 데이터를 백엔드 API에서 읽습니다.
+- cluster summary를 표시합니다:
+  - 사용 가능한 경우 Kubernetes version.
+  - readiness별 node count.
+  - namespace count.
+  - phase별 pod count.
+  - recent warning events.
+- node inventory를 표시합니다:
+  - name, readiness, roles, Kubernetes version.
+  - 사용 가능한 경우 internal IP.
+  - allocatable CPU and memory.
+  - metrics-server를 사용할 수 있을 때 current CPU and memory usage.
+- namespace inventory를 표시합니다:
+  - namespace name.
+  - status.
+  - age.
+  - basic workload counts.
+- Pods, Deployments, ReplicaSets, StatefulSets, DaemonSets, Services에 대한 workload inventory를 표시합니다:
+  - name, namespace, status, readiness, 적용 가능한 경우 restarts.
+  - labels와 owner references의 요약 형태.
+- pod detail을 표시합니다:
+  - containers and readiness.
+  - restart counts.
+  - node assignment.
+  - recent related events.
+  - 지정된 경우 resource requests and limits.
+  - metrics-server를 사용할 수 있을 때 current CPU and memory usage.
+- 단순 filter를 제공합니다:
   - Namespace.
   - Resource kind.
   - Status.
-  - Search by name.
-- Show stale-data or degraded-state indicators when Kubernetes API or metrics API calls fail.
-- Provide read-only monitoring only.
+  - Name search.
+- Kubernetes API 또는 metrics API 호출이 실패하면 stale-data 또는 degraded-state indicator를 표시합니다.
+- read-only monitoring만 제공합니다.
 
-### Out of Scope
+### 제외 범위
 
 - Prometheus integration.
 - Custom metrics.
 - Logs and exec access.
-- Mutating Kubernetes resources.
+- Kubernetes resource mutation.
 - Multi-cluster management.
 - Authentication and RBAC administration UI.
 - Alert routing or notification management.
-- Collector, DaemonSet, Operator, sidecar, or node agent.
+- Collector, DaemonSet, Operator, sidecar, node agent.
 - Long-term metric storage.
 
-## Data Sources
+## 데이터 소스
 
-- Kubernetes core and apps APIs for resource inventory and events.
-- `metrics.k8s.io` API from metrics-server for CPU and memory usage.
-- Backend process kubeconfig or in-cluster service account credentials, depending on deployment mode.
+- resource inventory와 events에는 Kubernetes core 및 apps API를 사용합니다.
+- CPU와 memory usage에는 metrics-server의 `metrics.k8s.io` API를 사용합니다.
+- 배포 방식에 따라 백엔드 프로세스의 kubeconfig 또는 in-cluster service account credential을 사용합니다.
 
-## Functional Requirements
+## 기능 요구사항
 
-1. The backend must validate Kubernetes connectivity on startup or through a health endpoint.
-2. The backend must expose a read-only REST API for the frontend.
-3. The backend must normalize Kubernetes objects into stable DTOs before returning them.
-4. The backend must tolerate missing metrics-server and return resource inventory without usage metrics.
-5. The frontend must render a useful dashboard when metrics are unavailable.
-6. The frontend must show loading, empty, degraded, and error states.
-7. The frontend must not receive raw kubeconfig, bearer tokens, or cluster secrets.
-8. The system must be usable against a standard Kubernetes cluster without installing extra components.
+1. 백엔드는 startup 또는 health endpoint를 통해 Kubernetes connectivity를 검증해야 합니다.
+2. 백엔드는 프론트엔드를 위한 read-only REST API를 노출해야 합니다.
+3. 백엔드는 Kubernetes object를 반환하기 전에 안정적인 DTO로 정규화해야 합니다.
+4. 백엔드는 metrics-server가 없어도 동작해야 하며 usage metrics 없이 resource inventory를 반환해야 합니다.
+5. 프론트엔드는 metrics를 사용할 수 없을 때도 유용한 dashboard를 렌더링해야 합니다.
+6. 프론트엔드는 loading, empty, degraded, error state를 표시해야 합니다.
+7. 프론트엔드는 raw kubeconfig, bearer token, cluster secret을 받아서는 안 됩니다.
+8. 시스템은 추가 component 설치 없이 표준 Kubernetes 클러스터에서 사용할 수 있어야 합니다.
 
-## Non-Functional Requirements
+## 비기능 요구사항
 
-- Lightweight: suitable for local development and small cluster monitoring.
-- Read-only by default: no write verbs required for MVP behavior.
-- Low operational footprint: one backend process and one frontend app.
-- Clear failure behavior: API errors should be visible and explain which data source failed.
-- Extensible: resource and metric DTOs should leave room for future Prometheus support.
+- Lightweight: 로컬 개발과 소규모 클러스터 모니터링에 적합해야 합니다.
+- Read-only by default: MVP 동작에는 write verb가 필요하지 않아야 합니다.
+- Low operational footprint: 하나의 백엔드 프로세스와 하나의 프론트엔드 앱으로 구성합니다.
+- Clear failure behavior: API error는 어떤 data source가 실패했는지 보이도록 해야 합니다.
+- Extensible: resource 및 metric DTO는 이후 Prometheus 지원을 추가할 여지를 남겨야 합니다.
 
-## Initial Success Criteria
+## 초기 성공 기준
 
-- A user can open the dashboard and identify whether the cluster has unhealthy nodes or pods.
-- A user can filter workloads by namespace and status.
-- A user can see CPU/memory usage when metrics-server is installed.
-- A user can still use inventory and status views when metrics-server is not installed.
+- 사용자는 dashboard를 열어 클러스터에 unhealthy node 또는 pod가 있는지 파악할 수 있습니다.
+- 사용자는 namespace와 status로 workload를 filter할 수 있습니다.
+- 사용자는 metrics-server가 설치되어 있을 때 CPU/memory usage를 볼 수 있습니다.
+- 사용자는 metrics-server가 설치되어 있지 않아도 inventory와 status view를 사용할 수 있습니다.
