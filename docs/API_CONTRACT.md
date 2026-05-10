@@ -124,7 +124,41 @@ CPU는 `millicores`, memory는 `bytes`로 정규화합니다.
   },
   "events": {
     "recentWarnings": 4
+  },
+  "alerts": {
+    "active": 2,
+    "critical": 1,
+    "warning": 1
   }
+}
+```
+
+### `GET /api/alerts`
+
+Query:
+
+- `severity`: optional `warning` 또는 `critical`.
+- `status`: optional `active` 또는 `resolved`.
+
+```json
+{
+  "items": [
+    {
+      "id": "node/worker-1/not-ready",
+      "severity": "critical",
+      "status": "active",
+      "title": "Node worker-1 is NotReady",
+      "message": "Node worker-1 has Ready condition False",
+      "resource": {
+        "kind": "Node",
+        "namespace": null,
+        "name": "worker-1",
+        "uid": "..."
+      },
+      "startedAt": "2026-05-06T00:00:00Z",
+      "lastSeenAt": "2026-05-06T00:05:00Z"
+    }
+  ]
 }
 ```
 

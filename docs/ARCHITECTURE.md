@@ -60,6 +60,8 @@ Kubernetes cluster
 - metrics-server availability를 확인합니다.
 - Nodes, Namespaces, Pods, Services, Deployments, ReplicaSets, StatefulSets, DaemonSets, Events를 읽습니다.
 - Kubernetes resource를 프론트엔드에 안전한 DTO로 정규화합니다.
+- unhealthy node, failed/pending pod, high restart count, recent warning event 같은 기본 alert candidate를 계산합니다.
+- Slack webhook이 설정된 경우 alert candidate를 Slack으로 보낼 수 있습니다.
 - raw Kubernetes object, kubeconfig, token, Secret 값을 API 응답에 포함하지 않습니다.
 - 공통 envelope, source status, error response 형식을 모든 endpoint에 적용합니다.
 
@@ -68,6 +70,7 @@ Kubernetes cluster
 - cluster summary, nodes, namespaces, workloads, pod detail, events 화면을 제공합니다.
 - 백엔드 API client를 통해서만 데이터를 가져옵니다.
 - loading, empty, degraded, error state를 일관되게 표시합니다.
+- alert banner 또는 notification panel로 문제가 있는 리소스를 눈에 띄게 보여줍니다.
 - metrics-server가 없는 경우 usage unavailable 상태를 명확히 보여줍니다.
 - credential 또는 Kubernetes secret을 저장하거나 표시하지 않습니다.
 
@@ -102,6 +105,24 @@ metrics-server 권한과 availability는 optional입니다. metrics를 사용할
 - 백엔드는 요청 시 Kubernetes API를 조회하거나 짧은 in-memory cache를 사용할 수 있습니다.
 - 프론트엔드는 일정 interval로 summary/list endpoint를 다시 호출할 수 있습니다.
 - watch, Server-Sent Events, WebSocket은 MVP 이후 필요가 명확할 때 도입합니다.
+
+## 알림 전략
+
+MVP 알림은 단순한 상태 기반 alert candidate로 시작합니다.
+
+- 브라우저: in-app banner 또는 notification panel을 기본으로 합니다.
+- 브라우저 OS 알림: 사용자가 권한을 허용한 경우에만 선택적으로 사용합니다.
+- Slack: 환경 변수로 제공된 webhook URL이 있을 때만 전송합니다.
+
+초기 alert condition:
+
+- NotReady node.
+- Failed 또는 장시간 Pending pod.
+- restart count가 threshold 이상인 pod.
+- 최근 Warning event.
+- Kubernetes API unavailable 또는 metrics-server degraded.
+
+Slack 알림에는 kubeconfig, token, Secret 값, raw object 전체를 포함하지 않습니다. 같은 alert가 반복 전송되지 않도록 alert key와 cooldown을 둡니다.
 
 ## EC2 검증 방식
 

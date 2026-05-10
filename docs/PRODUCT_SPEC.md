@@ -31,6 +31,7 @@ MVP는 하나의 Kubernetes 클러스터 상태를 빠르게 파악하는 읽기
 - workload count.
 - recent warning event count.
 - Kubernetes API 또는 metrics API degraded 상태.
+- 문제가 있는 리소스가 있으면 브라우저 화면에서 눈에 띄는 알림을 표시합니다.
 
 ### Nodes
 
@@ -67,13 +68,21 @@ MVP는 하나의 Kubernetes 클러스터 상태를 빠르게 파악하는 읽기
 - count, last timestamp.
 - namespace, type, involved kind, limit filter.
 
+### Alerts
+
+- unhealthy node, failed/pending pod, high restart count, recent warning event, Kubernetes API degraded 상태를 알림 후보로 표시합니다.
+- MVP의 브라우저 알림은 in-app banner 또는 notification panel을 우선합니다.
+- 브라우저 Web Notification API 사용은 사용자가 명시적으로 허용한 경우에만 선택적으로 사용합니다.
+- Slack 알림은 webhook 기반으로 시작하며, secret은 환경 변수로만 제공합니다.
+- Slack 알림은 중복 전송을 줄이기 위해 같은 alert key에 대한 간단한 cooldown을 적용합니다.
+
 ## 제외 범위
 
 - Kubernetes resource 생성/수정/삭제.
 - logs, exec, port-forward.
 - multi-cluster management.
 - user authentication/RBAC administration UI.
-- alert routing 또는 notification management.
+- 복잡한 alert routing, escalation, silence, on-call schedule 관리.
 - collector, DaemonSet, Operator, sidecar, node agent.
 - Prometheus integration.
 - long-term metric storage.
