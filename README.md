@@ -10,6 +10,7 @@ MVP는 EC2 한 대에서 단일 노드 Kubernetes를 실행하고, 같은 EC2에
 - 워크스페이스 스캐폴드 완료: `backend`, `frontend`, `packages/shared`.
 - 제품 요구사항, 아키텍처, API 계약 초안 작성 완료.
 - 백엔드 Fastify 서버 skeleton과 `/api/health` 구현 완료.
+- kubeconfig 또는 in-cluster service account 기반 Kubernetes client 초기화와 health connectivity check 구현 완료.
 - 프론트엔드 런타임 구현은 아직 시작 전입니다.
 
 ## 저장소 구조
@@ -47,14 +48,27 @@ pnpm format
 pnpm dev:backend
 ```
 
-현재 `/api/health`는 백엔드 프로세스 상태와 Kubernetes/metrics 연결 전 placeholder 상태를 반환합니다. Kubernetes client wiring이 추가되면 백엔드는 Kubernetes API에 직접 연결합니다. 로컬/EC2 개발에서는 kubeconfig를 사용하고, 나중에 클러스터 내부 배포가 필요해지면 in-cluster service account 방식을 추가합니다.
+`/api/health`는 백엔드 프로세스 상태, Kubernetes API 연결 상태와 server version, metrics-server API group 상태를 반환합니다. metrics-server가 없으면 metrics만 degraded/unavailable로 표시하고 백엔드 프로세스는 계속 실행됩니다.
 
 개발 서버는 기본적으로 `127.0.0.1:3000`에 bind합니다. EC2 내부와 외부 브라우저 접근이 필요하면 `HOST`와 `PORT` 환경 변수로 bind 주소와 port를 지정합니다.
+
+Kubernetes 연결 설정:
+
+- `KUBERNETES_AUTH_MODE`: optional. `default`, `kubeconfig`, `in-cluster` 중 하나입니다.
+- `KUBECONFIG`: local kubeconfig 파일 경로입니다. 값이 있으면 기본적으로 kubeconfig mode를 사용합니다.
+- `KUBERNETES_CONTEXT`: optional. kubeconfig 안의 특정 context를 선택합니다.
+- `KUBERNETES_IN_CLUSTER`: optional. `true`, `1`, `yes`, `on`이면 in-cluster mode를 사용합니다.
 
 실행 예시:
 
 ```sh
 HOST=0.0.0.0 PORT=3000 KUBECONFIG=~/.kube/config pnpm dev:backend
+```
+
+클러스터 내부 service account로 실행할 때는 아래처럼 명시할 수 있습니다.
+
+```sh
+KUBERNETES_AUTH_MODE=in-cluster pnpm dev:backend
 ```
 
 health check:

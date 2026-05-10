@@ -13,8 +13,8 @@
 
 1. [x] #3 Fastify API server skeleton과 `/api/health`를 구현합니다.
 2. [x] #5 공통 API envelope과 error response helper를 구현합니다.
-3. [ ] #4 kubeconfig 기반 Kubernetes config loading과 client 초기화를 구현합니다.
-4. [ ] #6 Kubernetes connectivity와 metrics-server availability check를 구현합니다.
+3. [x] #4 kubeconfig 기반 Kubernetes config loading과 client 초기화를 구현합니다.
+4. [x] #6 Kubernetes connectivity와 metrics-server availability check를 구현합니다.
 
 ## 2. Kubernetes 데이터 정규화
 

@@ -84,6 +84,8 @@ Kubernetes cluster
 
 MVP의 Kubernetes 동작은 읽기 전용입니다.
 
+백엔드는 `@kubernetes/client-node`의 `KubeConfig`로 Kubernetes client를 초기화합니다. 로컬/EC2 개발에서는 `KUBECONFIG`와 선택적 `KUBERNETES_CONTEXT`를 사용하고, 클러스터 내부에서 실행할 때는 `KUBERNETES_AUTH_MODE=in-cluster` 또는 `KUBERNETES_IN_CLUSTER=true`로 service account credentials를 사용합니다.
+
 필요한 verb:
 
 - `get`

@@ -5,8 +5,11 @@ import Fastify, {
 } from "fastify";
 
 import { registerApiResponseHelpers } from "./api-response.ts";
-
-export type ComponentStatus = "ok" | "degraded" | "unavailable";
+import {
+  createDefaultKubernetesHealthChecker,
+  type ComponentStatus,
+  type KubernetesHealthChecker,
+} from "./kubernetes-health.ts";
 
 export interface HealthResponse {
   status: "ok";
@@ -23,27 +26,25 @@ export interface HealthResponse {
 
 export interface CreateAppOptions {
   logger?: FastifyServerOptions["logger"];
+  kubernetesHealthChecker?: KubernetesHealthChecker;
 }
 
 export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   const app = Fastify({
     logger: options.logger ?? false,
   });
+  const kubernetesHealthChecker =
+    options.kubernetesHealthChecker ?? createDefaultKubernetesHealthChecker();
 
   registerApiResponseHelpers(app);
 
   app.get("/api/health", async (): Promise<HealthResponse> => {
+    const health = await kubernetesHealthChecker.check();
+
     return {
       status: "ok",
-      kubernetes: {
-        status: "degraded",
-        serverVersion: null,
-        message: "Kubernetes client wiring is pending",
-      },
-      metrics: {
-        status: "degraded",
-        message: "metrics-server check is pending",
-      },
+      kubernetes: health.kubernetes,
+      metrics: health.metrics,
     };
   });
 
