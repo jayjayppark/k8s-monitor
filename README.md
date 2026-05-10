@@ -9,7 +9,8 @@ MVP는 EC2 한 대에서 단일 노드 Kubernetes를 실행하고, 같은 EC2에
 - 스택 선택 완료: TypeScript, Fastify, React, Vite, pnpm workspace.
 - 워크스페이스 스캐폴드 완료: `backend`, `frontend`, `packages/shared`.
 - 제품 요구사항, 아키텍처, API 계약 초안 작성 완료.
-- 런타임 백엔드/프론트엔드 구현은 아직 시작 전입니다.
+- 백엔드 Fastify 서버 skeleton과 `/api/health` 구현 완료.
+- 프론트엔드 런타임 구현은 아직 시작 전입니다.
 
 ## 저장소 구조
 
@@ -36,24 +37,30 @@ pnpm lint
 pnpm format
 ```
 
-현재 각 workspace script는 구현 전 placeholder입니다. 구현이 진행되면 위 명령이 실제 백엔드, 프론트엔드, 테스트를 실행하도록 유지합니다.
+백엔드 workspace script는 실제 Fastify dev server, 타입체크, 테스트를 실행합니다. 아직 구현 전인 workspace script는 placeholder이며, 구현이 진행되면 위 명령이 실제 프론트엔드와 공유 패키지 검증을 실행하도록 유지합니다.
 
 ## 백엔드 실행
 
-구현 후 백엔드는 Fastify API server로 실행됩니다.
+백엔드는 Fastify API server로 실행됩니다.
 
 ```sh
 pnpm dev:backend
 ```
 
-백엔드는 Kubernetes API에 직접 연결합니다. 로컬/EC2 개발에서는 kubeconfig를 사용하고, 나중에 클러스터 내부 배포가 필요해지면 in-cluster service account 방식을 추가합니다.
+현재 `/api/health`는 백엔드 프로세스 상태와 Kubernetes/metrics 연결 전 placeholder 상태를 반환합니다. Kubernetes client wiring이 추가되면 백엔드는 Kubernetes API에 직접 연결합니다. 로컬/EC2 개발에서는 kubeconfig를 사용하고, 나중에 클러스터 내부 배포가 필요해지면 in-cluster service account 방식을 추가합니다.
 
-개발 서버는 EC2 내부와 외부 브라우저 접근을 고려해 `0.0.0.0`에 bind할 수 있어야 합니다. 실제 port와 환경 변수 이름은 백엔드 구현 시 확정합니다.
+개발 서버는 기본적으로 `127.0.0.1:3000`에 bind합니다. EC2 내부와 외부 브라우저 접근이 필요하면 `HOST`와 `PORT` 환경 변수로 bind 주소와 port를 지정합니다.
 
-예상 실행 형태:
+실행 예시:
 
 ```sh
 HOST=0.0.0.0 PORT=3000 KUBECONFIG=~/.kube/config pnpm dev:backend
+```
+
+health check:
+
+```sh
+curl http://127.0.0.1:3000/api/health
 ```
 
 ## 프론트엔드 실행
