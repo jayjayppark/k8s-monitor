@@ -7,6 +7,9 @@
 ## 작업 규칙
 
 - 변경 전 현재 문서를 먼저 확인합니다: `docs/PRODUCT_SPEC.md`, `docs/ARCHITECTURE.md`, `docs/API_CONTRACT.md`, `TASKS.md`.
+- Slack으로 실행되는 Codex 작업은 핵심 문서를 우선 컨텍스트로 사용하고, 작업별로 필요한 파일만 추가로 탐색합니다.
+- GitHub Issue가 지정된 작업은 해당 issue 본문과 acceptance criteria를 먼저 확인합니다.
+- issue 번호 없이 “다음 작업을 골라라”는 요청을 받으면 open issue와 `TASKS.md`를 비교해 추천만 하고, 사용자가 실행을 요청하기 전에는 구현하지 않습니다.
 - 구현으로 요구사항, API, 아키텍처, 실행 방법이 바뀌면 관련 문서를 현재 기준으로 바로 수정합니다.
 - 문서에는 변경 히스토리를 누적하지 않습니다. 바뀐 뒤의 최신 기준만 남깁니다.
 - 백엔드만 Kubernetes API와 직접 통신합니다.

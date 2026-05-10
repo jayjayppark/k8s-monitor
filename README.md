@@ -48,6 +48,14 @@ pnpm dev:backend
 
 백엔드는 Kubernetes API에 직접 연결합니다. 로컬/EC2 개발에서는 kubeconfig를 사용하고, 나중에 클러스터 내부 배포가 필요해지면 in-cluster service account 방식을 추가합니다.
 
+개발 서버는 EC2 내부와 외부 브라우저 접근을 고려해 `0.0.0.0`에 bind할 수 있어야 합니다. 실제 port와 환경 변수 이름은 백엔드 구현 시 확정합니다.
+
+예상 실행 형태:
+
+```sh
+HOST=0.0.0.0 PORT=3000 KUBECONFIG=~/.kube/config pnpm dev:backend
+```
+
 ## 프론트엔드 실행
 
 구현 후 프론트엔드는 Vite 개발 서버로 실행됩니다.
@@ -58,9 +66,36 @@ pnpm dev:frontend
 
 프론트엔드는 Kubernetes API와 직접 통신하지 않고 백엔드 API만 호출합니다.
 
+외부 브라우저에서 EC2 public IP로 접속하려면 Vite dev server가 `0.0.0.0`에 bind되어야 합니다. Vite는 CLI에서 `--host 0.0.0.0`을 지원합니다.
+
+예상 실행 형태:
+
+```sh
+pnpm dev:frontend -- --host 0.0.0.0
+```
+
+개발 중 접속 URL 예시:
+
+```text
+http://<EC2_PUBLIC_IP>:5173
+```
+
+프론트엔드는 백엔드 API base URL을 설정할 수 있어야 합니다. 실제 환경 변수 이름은 프론트엔드 구현 시 확정합니다.
+
 ## 단일 노드 Kubernetes 실행
 
 MVP 검증용 Kubernetes는 EC2에 K3s 단일 서버 노드로 설치하는 방식을 우선합니다. K3s 공식 quick-start는 설치 스크립트 방식의 단일 서버 실행을 안내합니다: <https://docs.k3s.io/quick-start>
+
+필요한 도구:
+
+- Node.js 22 이상.
+- pnpm.
+- curl.
+- K3s.
+- kubectl.
+- GitHub CLI는 issue 기반 작업에만 필요합니다.
+
+아직 자동 설치 스크립트는 없습니다. 설치 자동화가 필요해지면 별도 script 또는 문서로 추가합니다.
 
 설치 예시:
 
@@ -78,6 +113,56 @@ kubectl get nodes
 ```
 
 K3s에는 metrics-server가 기본 포함될 수 있습니다. metrics-server가 없거나 동작하지 않는 경우에도 MVP는 리소스 인벤토리를 보여주고 metrics 관련 값만 unavailable/degraded로 표시해야 합니다.
+
+## EC2 보안 그룹과 접속
+
+개발 중 외부 브라우저에서 EC2 public IP로 접속하려면 EC2 security group inbound rule이 필요합니다.
+
+개발 단계 예상 포트:
+
+- `5173/tcp`: Vite frontend dev server.
+- `3000/tcp`: Fastify backend dev server. 프론트엔드가 브라우저에서 직접 호출하는 구조라면 외부 접근이 필요합니다.
+- `22/tcp`: SSH.
+
+가능하면 `5173`과 `3000`은 본인 IP에서만 접근하도록 제한합니다. 운영 배포 전에는 HTTPS, 인증, reverse proxy 여부를 별도로 결정합니다.
+
+MVP 패키징 후에는 백엔드가 빌드된 프론트엔드를 함께 제공하는 구조를 목표로 합니다. 이 경우 외부 공개 포트는 하나로 줄일 수 있습니다.
+
+예상 접속 형태:
+
+```text
+개발 중: http://<EC2_PUBLIC_IP>:5173
+패키징 후: http://<EC2_PUBLIC_IP>:3000
+```
+
+## Slack으로 작업시키는 방법
+
+Slack에서는 GitHub Issue 단위로 일을 시키는 방식을 우선합니다.
+
+```text
+@AI Devbox Bot issues
+@AI Devbox Bot run issue 33
+```
+
+“가장 먼저 해야 할 일을 골라서 해라”처럼 시킬 수도 있지만, 더 안정적인 방식은 issue 번호를 명시하는 것입니다.
+
+```text
+@AI Devbox Bot ask codex GitHub issue들을 보고 현재 TASKS.md 기준으로 다음에 해야 할 issue를 추천해줘. 파일은 수정하지 마.
+```
+
+그 다음 선택한 issue를 실행합니다.
+
+```text
+@AI Devbox Bot run issue 3
+```
+
+Slack bot은 같은 Slack thread의 이전 대화를 컨텍스트로 저장합니다. 작업 주제가 바뀌면 새 thread를 사용하거나 아래 명령으로 thread context를 지웁니다.
+
+```text
+@AI Devbox Bot reset context
+```
+
+Codex 작업에는 항상 핵심 문서가 컨텍스트로 들어가는 것이 좋습니다. 이 개선은 #33에서 처리합니다. 그 전까지는 prompt에 관련 문서를 읽으라고 지시하지만, 문서 본문을 항상 자동 주입하지는 않습니다.
 
 ## 문서
 

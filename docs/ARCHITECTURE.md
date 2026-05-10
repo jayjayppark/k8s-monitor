@@ -8,7 +8,8 @@ MVP는 하나의 Kubernetes 클러스터를 읽기 전용으로 보여주는 백
 EC2
 ├── K3s single-node Kubernetes
 ├── backend: Fastify API server
-└── frontend: React + Vite dev server
+├── frontend: React + Vite dev server
+└── browser access: http://<EC2_PUBLIC_IP>:5173
 ```
 
 백엔드는 kubeconfig로 같은 EC2의 Kubernetes API에 연결합니다. 프론트엔드는 Kubernetes API에 직접 접근하지 않고 백엔드 API만 호출합니다.
@@ -106,11 +107,26 @@ metrics-server 권한과 availability는 optional입니다. metrics를 사용할
 
 1. EC2에 K3s 단일 노드 Kubernetes를 설치합니다.
 2. `kubectl get nodes`가 동작하는 kubeconfig를 준비합니다.
-3. 백엔드를 같은 EC2에서 실행하고 kubeconfig로 Kubernetes API에 연결합니다.
-4. 프론트엔드를 같은 EC2에서 실행합니다.
-5. 브라우저에서 프론트엔드를 열고 실제 cluster summary와 resource 목록을 확인합니다.
+3. 백엔드를 같은 EC2에서 `HOST=0.0.0.0`으로 실행하고 kubeconfig로 Kubernetes API에 연결합니다.
+4. 프론트엔드를 같은 EC2에서 Vite `--host 0.0.0.0`으로 실행합니다.
+5. 외부 브라우저에서 `http://<EC2_PUBLIC_IP>:5173`로 프론트엔드를 열고 실제 cluster summary와 resource 목록을 확인합니다.
 6. metrics-server가 정상인 경우 usage 값을 확인합니다.
 7. metrics-server가 없거나 실패하는 경우 degraded UI를 확인합니다.
+
+개발 단계에서는 EC2 security group에서 frontend port `5173/tcp`와 backend port `3000/tcp`를 필요한 source IP에만 열어둡니다. 패키징 후에는 백엔드가 정적 프론트엔드를 함께 제공해 공개 포트를 하나로 줄이는 것을 목표로 합니다.
+
+## 필요한 설치 항목
+
+EC2 dev box에는 아래 항목이 필요합니다.
+
+- Node.js 22 이상.
+- pnpm.
+- K3s single-node server.
+- kubectl.
+- GitHub CLI: GitHub Issue를 Slack bot 또는 로컬에서 조회할 때 사용합니다.
+- Python virtualenv: `tools/slack-bot` 실행에 사용합니다.
+
+자동 설치 스크립트는 아직 없습니다. 설치 자동화가 필요해지면 `scripts/` 아래에 추가하되, AWS 설정 변경이나 secret 작성은 포함하지 않습니다.
 
 ## 패키징 방향
 
