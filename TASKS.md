@@ -27,12 +27,12 @@
 
 ## 3. 백엔드 API
 
-1. [ ] #13 `GET /api/cluster/summary`를 구현합니다.
-2. [ ] #14 `GET /api/nodes`, `GET /api/namespaces`를 구현합니다.
-3. [ ] #15 `GET /api/workloads`와 filter를 구현합니다.
-4. [ ] #16 `GET /api/pods/{namespace}/{name}`을 구현합니다.
-5. [ ] #17 `GET /api/events`를 구현합니다.
-6. [ ] #34 alert candidate 계산과 `GET /api/alerts`를 구현합니다.
+1. [x] #13 `GET /api/cluster/summary`를 구현합니다.
+2. [x] #14 `GET /api/nodes`, `GET /api/namespaces`를 구현합니다.
+3. [x] #15 `GET /api/workloads`와 filter를 구현합니다.
+4. [x] #16 `GET /api/pods/{namespace}/{name}`을 구현합니다.
+5. [x] #17 `GET /api/events`를 구현합니다.
+6. [x] #34 alert candidate 계산과 `GET /api/alerts`를 구현합니다.
 
 ## 4. 프론트엔드
 
