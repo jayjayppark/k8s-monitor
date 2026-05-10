@@ -1,0 +1,428 @@
+import type {
+  V1ContainerStatus,
+  V1Namespace,
+  V1Node,
+  V1Pod,
+} from "@kubernetes/client-node";
+import { describe, expect, it } from "vitest";
+
+import {
+  normalizeCpuQuantity,
+  normalizeMemoryQuantity,
+  normalizeNamespace,
+  normalizeNode,
+  normalizePodDetail,
+  normalizePodWorkloadItem,
+} from "../src/kubernetes-normalizers.js";
+
+const NOW = new Date("2026-05-06T00:00:00Z");
+
+describe("quantity normalization", () => {
+  it("normalizes CPU cores, millicores, and missing values", () => {
+    expect(normalizeCpuQuantity("4")).toEqual({
+      raw: "4",
+      value: 4000,
+      unit: "millicores",
+    });
+    expect(normalizeCpuQuantity("250m")).toEqual({
+      raw: "250m",
+      value: 250,
+      unit: "millicores",
+    });
+    expect(normalizeCpuQuantity(undefined)).toBeNull();
+  });
+
+  it("normalizes binary memory quantities and missing values", () => {
+    expect(normalizeMemoryQuantity("512Ki")).toEqual({
+      raw: "512Ki",
+      value: 524288,
+      unit: "bytes",
+    });
+    expect(normalizeMemoryQuantity("128Mi")).toEqual({
+      raw: "128Mi",
+      value: 134217728,
+      unit: "bytes",
+    });
+    expect(normalizeMemoryQuantity("2Gi")).toEqual({
+      raw: "2Gi",
+      value: 2147483648,
+      unit: "bytes",
+    });
+    expect(normalizeMemoryQuantity(undefined)).toBeNull();
+  });
+});
+
+describe("namespace and node normalization", () => {
+  it("maps namespaces to the API contract shape", () => {
+    const namespace: V1Namespace = {
+      metadata: {
+        name: "default",
+        creationTimestamp: new Date("2026-05-05T23:00:00Z"),
+      },
+      status: {
+        phase: "Active",
+      },
+    };
+
+    expect(
+      normalizeNamespace(
+        namespace,
+        {
+          pods: 8,
+          services: 2,
+          deployments: 3,
+        },
+        NOW,
+      ),
+    ).toEqual({
+      name: "default",
+      status: "Active",
+      ageSeconds: 3600,
+      counts: {
+        pods: 8,
+        services: 2,
+        deployments: 3,
+      },
+    });
+  });
+
+  it("maps nodes with readiness, roles, addresses, and allocatable resources", () => {
+    const node: V1Node = {
+      metadata: {
+        name: "worker-1",
+        labels: {
+          "node-role.kubernetes.io/worker": "",
+          "kubernetes.io/role": "infra",
+        },
+        creationTimestamp: new Date("2026-05-05T00:00:00Z"),
+      },
+      status: {
+        conditions: [
+          {
+            type: "Ready",
+            status: "True",
+          },
+        ],
+        addresses: [
+          {
+            type: "Hostname",
+            address: "worker-1.local",
+          },
+          {
+            type: "InternalIP",
+            address: "10.0.1.10",
+          },
+        ],
+        nodeInfo: {
+          architecture: "amd64",
+          bootID: "boot",
+          containerRuntimeVersion: "containerd://1.7.0",
+          kernelVersion: "6.1.0",
+          kubeProxyVersion: "v1.30.0",
+          kubeletVersion: "v1.30.0",
+          machineID: "machine",
+          operatingSystem: "linux",
+          osImage: "Ubuntu",
+          systemUUID: "uuid",
+        },
+        allocatable: {
+          cpu: "4",
+          memory: "16Gi",
+        },
+      },
+    };
+
+    expect(normalizeNode(node, NOW)).toEqual({
+      name: "worker-1",
+      status: "Ready",
+      roles: ["infra", "worker"],
+      kubeletVersion: "v1.30.0",
+      internalIP: "10.0.1.10",
+      allocatable: {
+        cpu: {
+          raw: "4",
+          value: 4000,
+          unit: "millicores",
+        },
+        memory: {
+          raw: "16Gi",
+          value: 17179869184,
+          unit: "bytes",
+        },
+      },
+      usage: {
+        cpu: null,
+        memory: null,
+      },
+      ageSeconds: 86400,
+    });
+  });
+
+  it("treats missing or false Ready condition as NotReady", () => {
+    const node: V1Node = {
+      metadata: {
+        name: "control-plane",
+        labels: {
+          "node-role.kubernetes.io/control-plane": "",
+        },
+      },
+      status: {
+        conditions: [
+          {
+            type: "Ready",
+            status: "False",
+          },
+        ],
+      },
+    };
+
+    expect(normalizeNode(node, NOW)).toMatchObject({
+      name: "control-plane",
+      status: "NotReady",
+      roles: ["control-plane"],
+    });
+  });
+});
+
+describe("pod normalization", () => {
+  it("maps a running pod to a workload list item", () => {
+    const pod: V1Pod = {
+      metadata: {
+        namespace: "default",
+        name: "web-abc123",
+        labels: {
+          app: "web",
+        },
+        ownerReferences: [
+          {
+            apiVersion: "apps/v1",
+            kind: "ReplicaSet",
+            name: "web-abc",
+            uid: "owner-uid",
+          },
+        ],
+        creationTimestamp: new Date("2026-05-05T23:30:00Z"),
+      },
+      spec: {
+        containers: [
+          {
+            name: "web",
+            image: "example/web:1.0.0",
+          },
+          {
+            name: "sidecar",
+            image: "example/sidecar:1.0.0",
+          },
+        ],
+      },
+      status: {
+        phase: "Running",
+        containerStatuses: [
+          {
+            name: "web",
+            image: "example/web:1.0.0",
+            imageID: "image-a",
+            ready: true,
+            restartCount: 1,
+          },
+          {
+            name: "sidecar",
+            image: "example/sidecar:1.0.0",
+            imageID: "image-b",
+            ready: false,
+            restartCount: 2,
+          },
+        ],
+      },
+    };
+
+    expect(normalizePodWorkloadItem(pod, NOW)).toEqual({
+      kind: "Pod",
+      namespace: "default",
+      name: "web-abc123",
+      status: "Running",
+      ready: "1/2",
+      restarts: 3,
+      labels: {
+        app: "web",
+      },
+      owner: "ReplicaSet/web-abc",
+      ageSeconds: 1800,
+    });
+  });
+
+  it("maps pod detail containers without exposing sensitive pod spec fields", () => {
+    const pod: V1Pod = {
+      metadata: {
+        namespace: "default",
+        name: "web-abc123",
+      },
+      spec: {
+        nodeName: "worker-1",
+        containers: [
+          {
+            name: "web",
+            image: "example/web:1.0.0",
+            env: [
+              {
+                name: "TOKEN",
+                valueFrom: {
+                  secretKeyRef: {
+                    name: "app-token",
+                    key: "token",
+                  },
+                },
+              },
+            ],
+            resources: {
+              requests: {
+                cpu: "100m",
+                memory: "128Mi",
+              },
+              limits: {
+                cpu: "1",
+                memory: "512Mi",
+              },
+            },
+          },
+        ],
+      },
+      status: {
+        phase: "Running",
+        podIP: "10.244.1.5",
+        containerStatuses: [
+          {
+            name: "web",
+            image: "example/web:1.0.0",
+            imageID: "image-a",
+            ready: true,
+            restartCount: 0,
+          },
+        ],
+      },
+    };
+
+    const detail = normalizePodDetail(pod, [
+      {
+        type: "Warning",
+        reason: "BackOff",
+        message: "Back-off restarting failed container",
+        count: 3,
+        lastTimestamp: "2026-05-06T00:00:00Z",
+      },
+    ]);
+
+    expect(detail).toEqual({
+      kind: "Pod",
+      namespace: "default",
+      name: "web-abc123",
+      status: "Running",
+      nodeName: "worker-1",
+      podIP: "10.244.1.5",
+      ready: "1/1",
+      restarts: 0,
+      containers: [
+        {
+          name: "web",
+          ready: true,
+          restartCount: 0,
+          image: "example/web:1.0.0",
+          resources: {
+            requests: {
+              cpu: {
+                raw: "100m",
+                value: 100,
+                unit: "millicores",
+              },
+              memory: {
+                raw: "128Mi",
+                value: 134217728,
+                unit: "bytes",
+              },
+            },
+            limits: {
+              cpu: {
+                raw: "1",
+                value: 1000,
+                unit: "millicores",
+              },
+              memory: {
+                raw: "512Mi",
+                value: 536870912,
+                unit: "bytes",
+              },
+            },
+          },
+          usage: {
+            cpu: null,
+            memory: null,
+          },
+        },
+      ],
+      events: [
+        {
+          type: "Warning",
+          reason: "BackOff",
+          message: "Back-off restarting failed container",
+          count: 3,
+          lastTimestamp: "2026-05-06T00:00:00Z",
+        },
+      ],
+    });
+    expect(JSON.stringify(detail)).not.toContain("TOKEN");
+    expect(JSON.stringify(detail)).not.toContain("app-token");
+    expect(JSON.stringify(detail)).not.toContain("secretKeyRef");
+  });
+
+  const podPhaseCases: Array<
+    [string, V1ContainerStatus[] | undefined, string, number]
+  > = [
+    ["Pending", undefined, "0/1", 0],
+    [
+      "Failed",
+      [
+        {
+          name: "job",
+          image: "example/job:1.0.0",
+          imageID: "image-job",
+          ready: false,
+          restartCount: 5,
+        },
+      ],
+      "0/1",
+      5,
+    ],
+  ];
+
+  it.each(podPhaseCases)(
+    "normalizes %s pod readiness and restarts deterministically",
+    (phase, containerStatuses, ready, restarts) => {
+      const pod: V1Pod = {
+        metadata: {
+          namespace: "jobs",
+          name: `${phase.toLowerCase()}-pod`,
+        },
+        spec: {
+          containers: [
+            {
+              name: "job",
+              image: "example/job:1.0.0",
+            },
+          ],
+        },
+        status: {
+          phase,
+          containerStatuses,
+        },
+      };
+
+      expect(normalizePodWorkloadItem(pod, NOW)).toMatchObject({
+        namespace: "jobs",
+        name: `${phase.toLowerCase()}-pod`,
+        status: phase,
+        ready,
+        restarts,
+      });
+    },
+  );
+});

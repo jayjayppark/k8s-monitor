@@ -18,8 +18,8 @@
 
 ## 2. Kubernetes 데이터 정규화
 
-1. [ ] #7 Namespace와 Node DTO normalization을 구현합니다.
-2. [ ] #8 Pod inventory와 Pod detail DTO normalization을 구현합니다.
+1. [x] #7 Namespace와 Node DTO normalization을 구현합니다.
+2. [x] #8 Pod inventory와 Pod detail DTO normalization을 구현합니다.
 3. [ ] #9 Deployment와 ReplicaSet workload normalization을 구현합니다.
 4. [ ] #10 StatefulSet, DaemonSet, Service workload normalization을 구현합니다.
 5. [ ] #11 Event listing과 normalization을 구현합니다.
