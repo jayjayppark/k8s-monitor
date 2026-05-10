@@ -244,10 +244,10 @@ GitHub Issue #{issue_number}만 처리해라.
 
 작업 전 확인:
 - AGENTS.md
-- docs/REQUIREMENTS.md
+- docs/PRODUCT_SPEC.md
 - docs/ARCHITECTURE.md
 - docs/API_CONTRACT.md
-- docs/DECISIONS.md
+- TASKS.md
 - 해당 GitHub Issue 내용
 
 작업 규칙:

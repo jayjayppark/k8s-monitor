@@ -1,163 +1,126 @@
 # 아키텍처
 
-## 개요
+## 현재 목표
 
-MVP는 pnpm workspaces로 관리되는 TypeScript 모노레포입니다. 두 개의 애플리케이션과 하나의 공유 패키지를 포함합니다:
+MVP는 하나의 Kubernetes 클러스터를 읽기 전용으로 보여주는 백엔드/프론트엔드 애플리케이션입니다. 1차 실행 환경은 EC2 한 대입니다.
 
-- `backend`: 하나의 Kubernetes 클러스터에 연결하고 클러스터 상태를 정규화하는 Fastify API 서버.
-- `frontend`: 백엔드 API에서 받은 클러스터 상태와 리소스 화면을 렌더링하는 React + Vite 브라우저 애플리케이션.
-- `packages/shared`: 두 애플리케이션에서 함께 사용하는 TypeScript API DTO 타입과 helper.
+```text
+EC2
+├── K3s single-node Kubernetes
+├── backend: Fastify API server
+└── frontend: React + Vite dev server
+```
 
-백엔드만 Kubernetes와 통신합니다. 프론트엔드는 Kubernetes API와 직접 통신하지 않습니다.
+백엔드는 kubeconfig로 같은 EC2의 Kubernetes API에 연결합니다. 프론트엔드는 Kubernetes API에 직접 접근하지 않고 백엔드 API만 호출합니다.
+
+## 런타임 구성
 
 ```text
 Browser
   |
   | HTTP
   v
-Frontend app
+Frontend
   |
   | REST API
   v
-Backend API
+Backend
   |
   | Kubernetes API / metrics.k8s.io
   v
 Kubernetes cluster
 ```
 
-## 저장소 형태
-
-구현 스캐폴드는 아래 layout을 사용합니다:
+## 저장소 구조
 
 ```text
 .
-├── backend/
-├── frontend/
-├── packages/
-│   └── shared/
-├── docs/
-├── scripts/
-├── pnpm-workspace.yaml
-├── package.json
-├── AGENTS.md
-└── TASKS.md
+├── backend/             # Fastify 백엔드
+├── frontend/            # React + Vite 프론트엔드
+├── packages/shared/     # 공유 DTO 타입
+├── docs/                # 제품 기준, 아키텍처, API 계약
+├── scripts/             # 보조 스크립트
+└── tools/slack-bot/     # Slack 기반 Codex 실행 도구
 ```
 
-현재 스캐폴드는 workspace manifest와 package placeholder만 포함합니다. 런타임 백엔드, 프론트엔드, 공유 소스 파일은 이후 구현 이슈에서 도입합니다.
+## 기술 선택
 
-## 기술 스택
-
-- 런타임 언어: 백엔드, 프론트엔드, 공유 패키지 전반에 TypeScript를 사용합니다.
-- 워크스페이스 관리자: pnpm workspaces.
-- 백엔드 프레임워크: Fastify.
-- 프론트엔드 프레임워크 및 빌드 도구: React with Vite.
-- 공유 계약 패키지: `packages/shared`.
-- Kubernetes 클라이언트: `@kubernetes/client-node`.
-- 테스트 러너: Vitest.
-- 린트 및 포맷: ESLint and Prettier.
+- TypeScript를 백엔드, 프론트엔드, 공유 패키지에 사용합니다.
+- pnpm workspaces로 모노레포를 관리합니다.
+- 백엔드는 Fastify를 사용합니다.
+- 프론트엔드는 React + Vite를 사용합니다.
+- Kubernetes API client는 `@kubernetes/client-node`를 사용합니다.
+- 백엔드/프론트엔드/공유 패키지 테스트는 Vitest를 사용합니다.
 
 ## 백엔드 책임
 
-- Kubernetes 연결 설정을 로드합니다.
-- cluster connectivity를 확인합니다.
-- MVP에 필요한 Kubernetes resource를 list/watch합니다.
-- 사용 가능한 경우 `metrics.k8s.io`를 통해 metrics-server를 조회합니다.
-- local kubeconfig와 in-cluster service account access에 `@kubernetes/client-node`를 사용합니다.
+- kubeconfig 기반 Kubernetes 연결 설정을 로드합니다.
+- Kubernetes API connectivity와 server version을 확인합니다.
+- metrics-server availability를 확인합니다.
+- Nodes, Namespaces, Pods, Services, Deployments, ReplicaSets, StatefulSets, DaemonSets, Events를 읽습니다.
 - Kubernetes resource를 프론트엔드에 안전한 DTO로 정규화합니다.
-- 반복적인 Kubernetes API 부하를 줄이기 위해 최근 resource snapshot을 메모리에 캐시합니다.
-- metrics API unavailable 같은 partial failure를 명시적으로 드러냅니다.
-- read-only REST endpoint를 노출합니다.
+- raw Kubernetes object, kubeconfig, token, Secret 값을 API 응답에 포함하지 않습니다.
+- 공통 envelope, source status, error response 형식을 모든 endpoint에 적용합니다.
 
 ## 프론트엔드 책임
 
-- dashboard summary, inventory table, detail view를 렌더링합니다.
-- 백엔드 API만 호출합니다.
-- 백엔드 응답에는 `packages/shared`의 공유 DTO 타입을 사용합니다.
-- namespace/status/name filter를 제공합니다.
-- 백엔드 응답에 warning 또는 source error가 포함된 경우 degraded state를 표시합니다.
-- credential 또는 Kubernetes secret을 저장하지 않습니다.
+- cluster summary, nodes, namespaces, workloads, pod detail, events 화면을 제공합니다.
+- 백엔드 API client를 통해서만 데이터를 가져옵니다.
+- loading, empty, degraded, error state를 일관되게 표시합니다.
+- metrics-server가 없는 경우 usage unavailable 상태를 명확히 보여줍니다.
+- credential 또는 Kubernetes secret을 저장하거나 표시하지 않습니다.
 
 ## 공유 패키지 책임
 
-- `docs/API_CONTRACT.md`와 일치하는 TypeScript DTO를 정의합니다.
-- backend/frontend contract drift를 막는 데 도움이 되는 작은 shared helper만 제공합니다.
-- 브라우저에 노출되는 DTO에 Kubernetes client type을 import하지 않습니다.
-- runtime secret, kubeconfig value, environment-specific configuration을 보관하지 않습니다.
+- `docs/API_CONTRACT.md`와 일치하는 DTO 타입을 제공합니다.
+- 백엔드와 프론트엔드 사이의 계약 drift를 줄이는 작은 helper만 둡니다.
+- Kubernetes client type이나 runtime secret을 브라우저용 타입에 섞지 않습니다.
 
-## Kubernetes 접근 모델
+## Kubernetes 접근 방식
 
-백엔드는 아래 항목에 read-only access가 필요합니다:
+MVP의 Kubernetes 동작은 읽기 전용입니다.
 
-- Nodes.
-- Namespaces.
-- Pods.
-- Services.
-- Deployments, ReplicaSets, StatefulSets, DaemonSets.
-- Events.
-- 사용 가능한 경우 `metrics.k8s.io`의 pod 및 node metrics.
+필요한 verb:
 
-MVP는 아래 방식 중 하나로 동작해야 합니다:
+- `get`
+- `list`
+- `watch`
 
-- 개발용 local kubeconfig.
-- 배포용 in-cluster service account.
+대상 resource:
 
-필요한 verb는 monitored resource에 대한 `get`, `list`, `watch`로 제한되어야 합니다.
+- core: nodes, namespaces, pods, services, events.
+- apps: deployments, replicasets, statefulsets, daemonsets.
+- metrics.k8s.io: nodes, pods.
 
-## 데이터 흐름
+metrics-server 권한과 availability는 optional입니다. metrics를 사용할 수 없으면 API는 degraded source metadata와 `null` usage를 반환합니다.
 
-1. 백엔드가 시작되고 Kubernetes configuration을 로드합니다.
-2. 백엔드는 API connectivity를 검증하고 metrics-server 사용 가능 여부를 발견합니다.
-3. 백엔드는 resource inventory의 최근 in-memory snapshot을 유지합니다.
-4. 프론트엔드는 summary 및 list endpoint를 요청합니다.
-5. 백엔드는 사용 가능한 경우 resource state와 metrics를 병합합니다.
-6. 백엔드는 freshness와 degraded data source에 대한 metadata가 포함된 DTO를 반환합니다.
-7. 프론트엔드는 현재 상태를 렌더링하고 data가 stale 또는 partial이면 경고합니다.
+## 데이터 freshness
 
-## 메트릭 전략
+초기 구현은 단순 polling을 기준으로 합니다.
 
-MVP의 CPU와 memory usage는 metrics-server에서 가져옵니다:
+- 백엔드는 요청 시 Kubernetes API를 조회하거나 짧은 in-memory cache를 사용할 수 있습니다.
+- 프론트엔드는 일정 interval로 summary/list endpoint를 다시 호출할 수 있습니다.
+- watch, Server-Sent Events, WebSocket은 MVP 이후 필요가 명확할 때 도입합니다.
 
-- Node metrics: `NodeMetrics`.
-- Pod metrics: `PodMetrics`.
+## EC2 검증 방식
 
-Metrics는 optional입니다. `metrics.k8s.io`를 사용할 수 없으면 백엔드는 usage 값을 `null`로 반환하고 source warning을 포함합니다. 이렇게 하면 Prometheus 없이도 dashboard가 유용하게 동작합니다.
+1. EC2에 K3s 단일 노드 Kubernetes를 설치합니다.
+2. `kubectl get nodes`가 동작하는 kubeconfig를 준비합니다.
+3. 백엔드를 같은 EC2에서 실행하고 kubeconfig로 Kubernetes API에 연결합니다.
+4. 프론트엔드를 같은 EC2에서 실행합니다.
+5. 브라우저에서 프론트엔드를 열고 실제 cluster summary와 resource 목록을 확인합니다.
+6. metrics-server가 정상인 경우 usage 값을 확인합니다.
+7. metrics-server가 없거나 실패하는 경우 degraded UI를 확인합니다.
 
-## 실시간 전략
+## 패키징 방향
 
-초기 구현은 단순하고 신뢰할 수 있는 data refresh를 우선합니다:
+개발 중에는 백엔드와 프론트엔드를 별도 dev server로 실행합니다.
 
-- 가능한 경우 백엔드는 Kubernetes resource를 watch합니다.
-- 프론트엔드는 짧은 interval로 summary 및 list endpoint를 polling할 수 있습니다.
-- polling이 나쁜 UX를 만들면 이후 Server-Sent Events 또는 WebSocket을 고려할 수 있습니다.
-
-## 로컬 개발 전략
-
-로컬 개발은 백엔드와 프론트엔드 개발 서버를 분리해서 사용합니다:
-
-- `pnpm dev:backend`: Fastify 백엔드를 development mode로 시작합니다.
-- `pnpm dev:frontend`: Vite frontend development server를 시작합니다.
-- `pnpm dev`: 두 development server를 함께 시작합니다.
-
-첫 번째 packaged MVP는 Fastify 백엔드가 빌드된 프론트엔드 정적 asset을 제공할 수 있어야 합니다. 이렇게 하면 배포 시 하나의 백엔드 프로세스가 browser app과 API를 함께 host할 수 있습니다.
+첫 배포 가능한 MVP에서는 Fastify 백엔드가 빌드된 프론트엔드 정적 파일을 제공할 수 있게 합니다. 이렇게 하면 단일 백엔드 프로세스로 API와 UI를 함께 제공할 수 있습니다.
 
 ## 보안 경계
 
-- 백엔드가 Kubernetes credential을 소유합니다.
-- 프론트엔드는 정규화된 모니터링 데이터만 받습니다.
-- API endpoint는 secret을 반환하지 않습니다.
-- 로그에는 kubeconfig content, bearer token, Slack webhook URL을 출력하지 않아야 합니다.
-
-## 배포 가정
-
-- MVP는 kubeconfig를 사용해 로컬에서 실행될 수 있습니다.
-- 이후 배포는 read-only RBAC와 함께 target cluster 내부에서 백엔드를 실행할 수 있습니다.
-- 프론트엔드는 별도로 제공되거나 이후 packaging 단계에서 백엔드가 제공할 수 있습니다.
-
-## 알려진 아키텍처 한계
-
-- 백엔드 인스턴스 하나는 하나의 클러스터만 모니터링합니다.
-- historical metrics storage가 없습니다.
-- MVP에는 high availability 요구사항이 없습니다.
-- alerting pipeline이 없습니다.
-- metrics resolution과 retention은 metrics-server에 의해 제한됩니다.
+- Kubernetes credential은 백엔드 프로세스만 사용합니다.
+- 프론트엔드는 정규화된 monitoring data만 받습니다.
+- API와 로그는 kubeconfig content, bearer token, Slack webhook URL, Kubernetes Secret 값을 출력하지 않습니다.
+- AWS 설정 변경은 이 프로젝트의 애플리케이션 구현 범위가 아닙니다.

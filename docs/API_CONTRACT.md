@@ -1,15 +1,14 @@
 # API 계약
 
-## 원칙
+## 공통 원칙
 
-- API는 MVP에서 read-only입니다.
-- 프론트엔드는 raw Kubernetes object가 아니라 정규화된 DTO를 받습니다.
-- Kubernetes data에 의존하는 모든 응답은 freshness와 source status를 포함합니다.
-- missing metrics는 inventory endpoint의 hard failure가 아니라 `null` 값과 warning으로 표현합니다.
+- 모든 MVP API는 읽기 전용입니다.
+- 프론트엔드는 raw Kubernetes object를 받지 않습니다.
+- 성공 응답은 공통 envelope을 사용합니다.
+- Kubernetes API 또는 metrics-server 상태는 `meta.sources`에 포함합니다.
+- metrics-server가 없으면 inventory API는 실패하지 않고 usage 값을 `null`로 반환합니다.
 
-## 공통 타입
-
-### Envelope
+## 공통 응답
 
 ```json
 {
@@ -35,6 +34,14 @@
 }
 ```
 
+source `status` 값:
+
+- `ok`
+- `degraded`
+- `unavailable`
+
+## 공통 타입
+
 ### Quantity
 
 ```json
@@ -45,7 +52,7 @@
 }
 ```
 
-CPU 값은 정규화 단위로 millicores를 사용해야 합니다. Memory 값은 bytes를 사용해야 합니다.
+CPU는 `millicores`, memory는 `bytes`로 정규화합니다.
 
 ### ResourceRef
 
@@ -70,13 +77,11 @@ CPU 값은 정규화 단위로 millicores를 사용해야 합니다. Memory 값�
 }
 ```
 
-## 엔드포인트
+## Endpoints
 
 ### `GET /api/health`
 
-백엔드 프로세스 health와 Kubernetes connectivity를 반환합니다.
-
-응답:
+백엔드 프로세스, Kubernetes API, metrics-server 상태를 반환합니다.
 
 ```json
 {
@@ -92,10 +97,6 @@ CPU 값은 정규화 단위로 millicores를 사용해야 합니다. Memory 값�
 ```
 
 ### `GET /api/cluster/summary`
-
-상위 수준의 cluster status를 반환합니다.
-
-응답 데이터:
 
 ```json
 {
@@ -129,12 +130,10 @@ CPU 값은 정규화 단위로 millicores를 사용해야 합니다. Memory 값�
 
 ### `GET /api/nodes`
 
-쿼리 파라미터:
+Query:
 
-- `status`: 선택 사항. `ready` 또는 `notReady`.
-- `search`: 선택 사항. 대소문자를 구분하지 않는 이름 검색.
-
-응답 데이터:
+- `status`: optional `ready` 또는 `notReady`.
+- `search`: optional name search.
 
 ```json
 {
@@ -159,9 +158,9 @@ CPU 값은 정규화 단위로 millicores를 사용해야 합니다. Memory 값�
 }
 ```
 
-### `GET /api/namespaces`
+`usage.cpu`와 `usage.memory`는 metrics가 없으면 `null`입니다.
 
-응답 데이터:
+### `GET /api/namespaces`
 
 ```json
 {
@@ -182,14 +181,12 @@ CPU 값은 정규화 단위로 millicores를 사용해야 합니다. Memory 값�
 
 ### `GET /api/workloads`
 
-쿼리 파라미터:
+Query:
 
-- `namespace`: 선택 사항. namespace.
-- `kind`: 선택 사항. `Pod`, `Deployment`, `ReplicaSet`, `StatefulSet`, `DaemonSet`, 또는 `Service`.
-- `status`: 선택 사항. status string.
-- `search`: 선택 사항. 대소문자를 구분하지 않는 이름 검색.
-
-응답 데이터:
+- `namespace`: optional namespace.
+- `kind`: optional `Pod`, `Deployment`, `ReplicaSet`, `StatefulSet`, `DaemonSet`, `Service`.
+- `status`: optional status string.
+- `search`: optional name search.
 
 ```json
 {
@@ -212,10 +209,6 @@ CPU 값은 정규화 단위로 millicores를 사용해야 합니다. Memory 값�
 ```
 
 ### `GET /api/pods/{namespace}/{name}`
-
-pod detail을 반환합니다.
-
-응답 데이터:
 
 ```json
 {
@@ -261,16 +254,16 @@ pod detail을 반환합니다.
 }
 ```
 
+container `usage.cpu`와 `usage.memory`는 metrics가 없으면 `null`입니다.
+
 ### `GET /api/events`
 
-쿼리 파라미터:
+Query:
 
-- `namespace`: 선택 사항. namespace.
-- `type`: 선택 사항. `Normal` 또는 `Warning`.
-- `involvedKind`: 선택 사항. Kubernetes kind.
-- `limit`: 선택 사항. 최대 event count이며 기본값은 `50`입니다.
-
-응답 데이터:
+- `namespace`: optional namespace.
+- `type`: optional `Normal` 또는 `Warning`.
+- `involvedKind`: optional Kubernetes kind.
+- `limit`: optional maximum event count. 기본값은 `50`입니다.
 
 ```json
 {
@@ -293,14 +286,10 @@ pod detail을 반환합니다.
 }
 ```
 
-## 상태 코드
+## Status Codes
 
-- `200`: 성공 응답입니다. degraded source status가 포함될 수 있습니다.
+- `200`: 성공. degraded source status가 포함될 수 있습니다.
 - `400`: query parameter가 유효하지 않습니다.
 - `404`: 요청한 resource를 찾을 수 없습니다.
-- `503`: 백엔드가 요청된 작업에 필요한 Kubernetes API에 도달할 수 없습니다.
-- `500`: 예상하지 못한 백엔드 error입니다.
-
-## 버전 관리
-
-MVP endpoint는 `/api` 아래에 둡니다. MVP 이후 breaking change가 필요하면 외부 사용자가 contract에 의존하기 전에 `/api/v1`을 도입합니다.
+- `503`: 요청 처리에 필요한 Kubernetes API에 도달할 수 없습니다.
+- `500`: 예상하지 못한 backend error입니다.
