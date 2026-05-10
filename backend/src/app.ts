@@ -4,6 +4,8 @@ import Fastify, {
   type FastifyServerOptions,
 } from "fastify";
 
+import { registerApiResponseHelpers } from "./api-response.ts";
+
 export type ComponentStatus = "ok" | "degraded" | "unavailable";
 
 export interface HealthResponse {
@@ -27,6 +29,8 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   const app = Fastify({
     logger: options.logger ?? false,
   });
+
+  registerApiResponseHelpers(app);
 
   app.get("/api/health", async (): Promise<HealthResponse> => {
     return {
