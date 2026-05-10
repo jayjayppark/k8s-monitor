@@ -61,6 +61,30 @@ export function SelectFilter({
   );
 }
 
+export function TextFilter({
+  label,
+  value,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="filter-control">
+      <span>{label}</span>
+      <input
+        type="search"
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  );
+}
+
 export function DataTable<TItem>({
   columns,
   items,

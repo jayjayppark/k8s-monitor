@@ -41,9 +41,9 @@
 3. [x] #20 loading, empty, degraded, error state component를 구현합니다.
 4. [x] #21 table과 filter component를 구현합니다.
 5. [x] #22 cluster summary dashboard를 구현합니다.
-6. [ ] #23 nodes와 namespaces view를 구현합니다.
-7. [ ] #24 workloads view와 filter를 구현합니다.
-8. [ ] #25 pod detail view를 구현합니다.
+6. [x] #23 nodes와 namespaces view를 구현합니다.
+7. [x] #24 workloads view와 filter를 구현합니다.
+8. [x] #25 pod detail view를 구현합니다.
 9. [x] #26 events view 또는 recent events panel을 구현합니다.
 10. [x] #35 브라우저 alert banner/notification panel을 구현합니다.
 11. [ ] #27 frontend regression/responsive checks를 추가합니다.

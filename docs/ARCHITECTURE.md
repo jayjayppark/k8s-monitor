@@ -74,7 +74,7 @@ Kubernetes cluster
 - metrics-server가 없는 경우 usage unavailable 상태를 명확히 보여줍니다.
 - credential 또는 Kubernetes secret을 저장하거나 표시하지 않습니다.
 
-현재 프론트엔드는 React + Vite 런타임으로 구현되어 있습니다. Overview 화면은 `/api/cluster/summary`, `/api/alerts`, `/api/events`를 호출해 summary card, degraded source banner, active alert panel, recent events table을 표시합니다. Nodes, Namespaces, Workloads, Pod detail의 전체 화면은 같은 app shell과 API client를 기반으로 순차 구현합니다.
+현재 프론트엔드는 React + Vite 런타임으로 구현되어 있습니다. Overview 화면은 `/api/cluster/summary`, `/api/alerts`, `/api/events`를 호출해 summary card, degraded source banner, active alert panel, recent events table을 표시합니다. Nodes, Namespaces, Workloads, Events 화면은 같은 app shell과 API client를 기반으로 list/filter/table UI를 제공합니다. Workloads 화면에서 Pod 항목을 선택하면 `/api/pods/{namespace}/{name}`으로 Pod detail panel을 표시합니다.
 
 개발 중 기본 API 호출은 same-origin `/api` 경로를 사용합니다. Vite dev server는 `/api` 요청을 `VITE_BACKEND_PROXY_TARGET` 또는 기본값 `http://127.0.0.1:3000`으로 proxy합니다. 브라우저가 직접 백엔드 origin을 호출해야 하는 환경에서는 `VITE_API_BASE_URL`로 API base URL을 지정할 수 있습니다.
 

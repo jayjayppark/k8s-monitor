@@ -23,6 +23,7 @@ body {
 }
 
 button,
+input,
 select {
   font: inherit;
 }
@@ -120,6 +121,10 @@ main {
   gap: 8px;
 }
 
+.panel > .banner {
+  margin-bottom: 16px;
+}
+
 .metric-grid {
   display: grid;
   gap: 14px;
@@ -180,6 +185,11 @@ main {
   margin: 0;
 }
 
+.panel h3 {
+  font-size: 15px;
+  margin: 18px 0 10px;
+}
+
 .panel-heading p {
   margin: 4px 0 0;
 }
@@ -202,11 +212,43 @@ main {
   font-weight: 650;
 }
 
+.filter-control input,
 .filter-control select {
   border: 1px solid #d1d5db;
   border-radius: 8px;
   min-height: 38px;
   padding: 0 10px;
+}
+
+.secondary-button,
+.link-button {
+  cursor: pointer;
+}
+
+.secondary-button {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  color: #1f2937;
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.secondary-button:hover {
+  background: #f3f4f6;
+}
+
+.link-button {
+  background: transparent;
+  border: 0;
+  color: #1d4ed8;
+  font-weight: 650;
+  padding: 0;
+  text-align: left;
+}
+
+.link-button:hover {
+  text-decoration: underline;
 }
 
 .alert-list {
@@ -253,6 +295,22 @@ main {
   padding: 6px 8px;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.detail-grid {
+  display: grid;
+  gap: 8px 14px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  margin-bottom: 6px;
+}
+
+.detail-grid span {
+  color: #6b7280;
+}
+
+.detail-grid strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .table-wrap {

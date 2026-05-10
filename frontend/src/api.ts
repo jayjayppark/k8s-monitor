@@ -4,6 +4,11 @@ import type {
   ClusterSummaryDto,
   EventDto,
   ListResponse,
+  NamespaceDto,
+  NodeDto,
+  PodDetailDto,
+  WorkloadItemDto,
+  WorkloadKind,
 } from "@k8s-monitor/shared";
 
 export class ApiClientError extends Error {
@@ -28,6 +33,20 @@ function createApiUrl(path: string): string {
   }
 
   return `${API_BASE_URL.replace(/\/$/, "")}${normalizedPath}`;
+}
+
+function createQuery(params: Record<string, string | undefined>): string {
+  const query = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value && value !== "all") {
+      query.set(key, value);
+    }
+  }
+
+  const serialized = query.toString();
+
+  return serialized ? `?${serialized}` : "";
 }
 
 async function requestEnvelope<TData>(
@@ -84,6 +103,64 @@ export function getRecentEvents(
   );
 }
 
+export function getEvents(
+  options: {
+    namespace?: string;
+    type?: string;
+    involvedKind?: string;
+    limit?: string;
+  } = {},
+  signal?: AbortSignal,
+): Promise<ApiEnvelope<ListResponse<EventDto>>> {
+  return requestEnvelope<ListResponse<EventDto>>(
+    `/api/events${createQuery(options)}`,
+    signal,
+  );
+}
+
+export function getNodes(
+  options: { status?: string; search?: string } = {},
+  signal?: AbortSignal,
+): Promise<ApiEnvelope<ListResponse<NodeDto>>> {
+  return requestEnvelope<ListResponse<NodeDto>>(
+    `/api/nodes${createQuery(options)}`,
+    signal,
+  );
+}
+
+export function getNamespaces(
+  signal?: AbortSignal,
+): Promise<ApiEnvelope<ListResponse<NamespaceDto>>> {
+  return requestEnvelope<ListResponse<NamespaceDto>>("/api/namespaces", signal);
+}
+
+export function getWorkloads(
+  options: {
+    namespace?: string;
+    kind?: WorkloadKind | "all";
+    status?: string;
+    search?: string;
+  } = {},
+  signal?: AbortSignal,
+): Promise<ApiEnvelope<ListResponse<WorkloadItemDto>>> {
+  return requestEnvelope<ListResponse<WorkloadItemDto>>(
+    `/api/workloads${createQuery(options)}`,
+    signal,
+  );
+}
+
+export function getPodDetail(
+  namespace: string,
+  name: string,
+  signal?: AbortSignal,
+): Promise<ApiEnvelope<PodDetailDto>> {
+  return requestEnvelope<PodDetailDto>(
+    `/api/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}`,
+    signal,
+  );
+}
+
 export const apiInternals = {
   createApiUrl,
+  createQuery,
 };
