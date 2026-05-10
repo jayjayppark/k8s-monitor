@@ -20,9 +20,9 @@
 
 1. [x] #7 Namespace와 Node DTO normalization을 구현합니다.
 2. [x] #8 Pod inventory와 Pod detail DTO normalization을 구현합니다.
-3. [ ] #9 Deployment와 ReplicaSet workload normalization을 구현합니다.
-4. [ ] #10 StatefulSet, DaemonSet, Service workload normalization을 구현합니다.
-5. [ ] #11 Event listing과 normalization을 구현합니다.
+3. [x] #9 Deployment와 ReplicaSet workload normalization을 구현합니다.
+4. [x] #10 StatefulSet, DaemonSet, Service workload normalization을 구현합니다.
+5. [x] #11 Event listing과 normalization을 구현합니다.
 6. [ ] #12 Node와 Pod metrics 조회 및 병합을 구현합니다.
 
 ## 3. 백엔드 API
