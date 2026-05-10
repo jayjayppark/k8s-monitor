@@ -1,0 +1,24 @@
+{
+  "name": "k8s-monitor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lightweight Kubernetes monitoring web application for one cluster.",
+  "packageManager": "pnpm@10.10.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "bootstrap": "pnpm install",
+    "dev": "pnpm -r --parallel --if-present dev",
+    "dev:backend": "pnpm --filter @k8s-monitor/backend dev",
+    "dev:frontend": "pnpm --filter @k8s-monitor/frontend dev",
+    "build": "pnpm -r --if-present build",
+    "test": "pnpm -r --if-present test",
+    "lint": "pnpm -r --if-present lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3"
+  }
+}

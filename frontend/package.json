@@ -1,0 +1,21 @@
+{
+  "name": "@k8s-monitor/frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node -e \"console.log('frontend workspace scaffold ready; React + Vite implementation pending')\"",
+    "build": "node -e \"console.log('frontend build pending implementation')\"",
+    "test": "node -e \"console.log('frontend tests pending implementation')\"",
+    "lint": "node -e \"console.log('frontend lint pending implementation')\""
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^4.4.1",
+    "vite": "^6.3.5",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.1.3"
+  }
+}
