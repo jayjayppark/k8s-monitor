@@ -154,9 +154,11 @@ EC2 dev box에는 아래 항목이 필요합니다.
 - GitHub CLI: GitHub Issue를 Slack bot 또는 로컬에서 조회할 때 사용합니다.
 - Python virtualenv: `tools/slack-bot` 실행에 사용합니다.
 
-자동 설치 스크립트는 아직 없습니다. 설치 자동화가 필요해지면 `scripts/` 아래에 추가하되, AWS 설정 변경이나 secret 작성은 포함하지 않습니다.
+- EC2 K3s 설치와 kubeconfig 준비 절차는 `docs/KUBERNETES_SETUP.md`를 기준으로 합니다.
+- 구체적인 로컬/EC2 실행 명령, 읽기 전용 RBAC 예시, smoke test 절차는 `docs/DEVELOPMENT.md`를 기준으로 합니다.
+- 장애 알림 검증용 선택 시나리오는 `docs/FAILURE_TESTING.md`를 기준으로 합니다.
 
-구체적인 로컬/EC2 실행 명령, 읽기 전용 RBAC 예시, smoke test 절차는 `docs/DEVELOPMENT.md`를 기준으로 합니다.
+자동 설치 스크립트가 필요해지면 `scripts/` 아래에 추가하되, AWS 설정 변경이나 secret 작성은 포함하지 않습니다.
 
 ## CI 검증
 

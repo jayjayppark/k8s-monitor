@@ -16,6 +16,8 @@ MVP는 백엔드만 Kubernetes API와 통신합니다. 프론트엔드는 백엔
 - GitHub Issue 기반 작업을 로컬에서 조회하려면 GitHub CLI.
 - Slack bot을 실행하려면 Python virtualenv.
 
+EC2에서 K3s를 설치하고 사용자 kubeconfig를 준비하는 절차는 `docs/KUBERNETES_SETUP.md`를 기준으로 합니다.
+
 의존성 설치:
 
 ```sh
@@ -82,16 +84,16 @@ EC2 검증은 한 대의 EC2에서 K3s, 백엔드, 프론트엔드를 함께 실
 Kubernetes 접근 확인:
 
 ```sh
-kubectl get nodes
-kubectl get namespaces
-kubectl get --raw /version
+KUBECONFIG=$HOME/.kube/config kubectl get nodes
+KUBECONFIG=$HOME/.kube/config kubectl get namespaces
+KUBECONFIG=$HOME/.kube/config kubectl get --raw /version
 ```
 
 metrics-server 확인:
 
 ```sh
-kubectl top nodes
-kubectl get --raw /apis/metrics.k8s.io/v1beta1/nodes
+KUBECONFIG=$HOME/.kube/config kubectl top nodes
+KUBECONFIG=$HOME/.kube/config kubectl get --raw /apis/metrics.k8s.io/v1beta1/nodes
 ```
 
 metrics-server가 없거나 실패해도 백엔드 API는 inventory 응답을 계속 반환하고, usage 값은 `null`이며 source status는 degraded 또는 unavailable이어야 합니다.
@@ -105,7 +107,7 @@ HOST=0.0.0.0 PORT=3000 KUBECONFIG=~/.kube/config pnpm dev:backend
 EC2에서 프론트엔드 실행:
 
 ```sh
-VITE_BACKEND_PROXY_TARGET=http://127.0.0.1:3000 pnpm dev:frontend -- --host 0.0.0.0
+VITE_BACKEND_PROXY_TARGET=http://127.0.0.1:3000 pnpm --filter @k8s-monitor/frontend dev --host 0.0.0.0
 ```
 
 브라우저 접속:
@@ -194,7 +196,7 @@ pnpm install
 pnpm lint
 pnpm build
 pnpm test
-kubectl get nodes
+KUBECONFIG=$HOME/.kube/config kubectl get nodes
 ```
 
 백엔드 API 확인:
@@ -215,7 +217,7 @@ Slack alert 전송을 수동 검증할 때는 webhook URL을 환경 변수로만
 프론트엔드 확인:
 
 ```sh
-VITE_BACKEND_PROXY_TARGET=http://127.0.0.1:3000 pnpm dev:frontend -- --host 0.0.0.0
+VITE_BACKEND_PROXY_TARGET=http://127.0.0.1:3000 pnpm --filter @k8s-monitor/frontend dev --host 0.0.0.0
 ```
 
 브라우저에서 확인할 항목:
@@ -228,14 +230,7 @@ VITE_BACKEND_PROXY_TARGET=http://127.0.0.1:3000 pnpm dev:frontend -- --host 0.0.
 - kubeconfig, bearer token, Kubernetes Secret 값은 화면과 API 응답에 표시되지 않습니다.
 
 장애 알림 UI를 검증할 때는 MVP 테스트용 클러스터의 전용 namespace에서만 임시 resource를 만들고 테스트 후 삭제합니다. 운영 클러스터에서는 실행하지 않습니다.
-
-```sh
-kubectl create namespace k8s-monitor-alert-test
-kubectl -n k8s-monitor-alert-test run bad-image --image=ghcr.io/example/does-not-exist:never
-kubectl -n k8s-monitor-alert-test get pods
-kubectl -n k8s-monitor-alert-test get events --sort-by=.lastTimestamp
-kubectl delete namespace k8s-monitor-alert-test
-```
+구체적인 장애 리소스 생성, 확인, cleanup 절차는 `docs/FAILURE_TESTING.md`를 기준으로 합니다.
 
 ## Secret 취급
 
