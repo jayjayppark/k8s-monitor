@@ -58,3 +58,4 @@
 5. [x] #37 읽기 전용 Pod log API를 구현합니다.
 6. [x] #32 install, lint, typecheck, test를 실행하는 CI를 추가합니다.
 7. [x] #31 MVP release 전 보안 경계와 읽기 전용 동작을 검증합니다.
+8. [x] 발표용 장애 알림 데모 스크립트를 추가합니다.
