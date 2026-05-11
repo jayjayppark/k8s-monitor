@@ -178,6 +178,16 @@ export interface PodDetailDto {
   events: PodEventDto[];
 }
 
+export interface PodLogsDto {
+  kind: "PodLog";
+  namespace: string;
+  name: string;
+  container: string;
+  previous: boolean;
+  tailLines: number;
+  logs: string;
+}
+
 export interface ListResponse<TItem> {
   items: TItem[];
 }

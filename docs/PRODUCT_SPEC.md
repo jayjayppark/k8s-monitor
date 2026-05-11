@@ -59,6 +59,7 @@ MVP는 하나의 Kubernetes 클러스터 상태를 빠르게 파악하는 읽기
 - resource requests/limits.
 - request 대비 current CPU/memory usage와 사용률.
 - related recent events.
+- 선택한 container의 최근 로그. 기본 100줄, 최대 500줄이며, crash 조사용 previous container log를 선택적으로 볼 수 있습니다.
 
 ### Events
 
@@ -78,7 +79,8 @@ MVP는 하나의 Kubernetes 클러스터 상태를 빠르게 파악하는 읽기
 ## 제외 범위
 
 - Kubernetes resource 생성/수정/삭제.
-- logs, exec, port-forward.
+- live log streaming, log search, log download/export, long-term log storage.
+- exec, port-forward.
 - multi-cluster management.
 - user authentication/RBAC administration UI.
 - 복잡한 alert routing, escalation, silence, on-call schedule 관리.

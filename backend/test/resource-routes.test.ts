@@ -3,11 +3,13 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { createApp } from "../src/app.js";
 import type { KubernetesHealthChecker } from "../src/kubernetes-health.js";
-import type {
-  KubernetesResourceReader,
-  KubernetesResourceSnapshot,
-  NodeListOptions,
-  WorkloadListOptions,
+import {
+  KubernetesResourceNotFoundError,
+  type KubernetesResourceReader,
+  type KubernetesResourceSnapshot,
+  type NodeListOptions,
+  type PodLogReadOptions,
+  type WorkloadListOptions,
 } from "../src/kubernetes-resources.js";
 import type { EventListOptions } from "../src/kubernetes-normalizers.js";
 
@@ -208,6 +210,21 @@ function createReader(
         events: [],
       };
     },
+    async getPodLogs(options: PodLogReadOptions) {
+      if (options.namespace !== "default" || options.name !== "web") {
+        return null;
+      }
+
+      return {
+        kind: "PodLog",
+        namespace: options.namespace,
+        name: options.name,
+        container: options.container ?? "app",
+        previous: options.previous,
+        tailLines: options.tailLines,
+        logs: "started\nready\n",
+      };
+    },
     ...overrides,
   };
 }
@@ -329,6 +346,50 @@ describe("resource API routes", () => {
     });
   });
 
+  it("returns pod logs with selected container and bounded tail lines", async () => {
+    app = createTestApp();
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/pods/default/web/logs?container=app&tailLines=500&previous=true",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data).toEqual({
+      kind: "PodLog",
+      namespace: "default",
+      name: "web",
+      container: "app",
+      previous: true,
+      tailLines: 500,
+      logs: "started\nready\n",
+    });
+  });
+
+  it("maps unavailable previous pod logs to 404", async () => {
+    app = createTestApp(
+      createReader({
+        async getPodLogs() {
+          throw new KubernetesResourceNotFoundError("Pod logs not found");
+        },
+      }),
+    );
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/pods/default/web/logs?container=app&previous=true",
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: {
+        code: "NOT_FOUND",
+        message: "Pod logs not found",
+        details: {},
+      },
+    });
+  });
+
   it("returns namespaces and active alerts", async () => {
     app = createTestApp();
 
@@ -391,28 +452,34 @@ describe("resource API routes", () => {
   it("validates query parameters and maps missing pods to 404", async () => {
     app = createTestApp();
 
-    const [badNodes, badWorkloads, badEvents, missingPod] = await Promise.all([
-      app.inject({
-        method: "GET",
-        url: "/api/nodes?status=broken",
-      }),
-      app.inject({
-        method: "GET",
-        url: "/api/workloads?kind=Secret",
-      }),
-      app.inject({
-        method: "GET",
-        url: "/api/events?limit=999",
-      }),
-      app.inject({
-        method: "GET",
-        url: "/api/pods/default/missing",
-      }),
-    ]);
+    const [badNodes, badWorkloads, badEvents, badLogs, missingPod] =
+      await Promise.all([
+        app.inject({
+          method: "GET",
+          url: "/api/nodes?status=broken",
+        }),
+        app.inject({
+          method: "GET",
+          url: "/api/workloads?kind=Secret",
+        }),
+        app.inject({
+          method: "GET",
+          url: "/api/events?limit=999",
+        }),
+        app.inject({
+          method: "GET",
+          url: "/api/pods/default/web/logs?tailLines=999",
+        }),
+        app.inject({
+          method: "GET",
+          url: "/api/pods/default/missing",
+        }),
+      ]);
 
     expect(badNodes.statusCode).toBe(400);
     expect(badWorkloads.statusCode).toBe(400);
     expect(badEvents.statusCode).toBe(400);
+    expect(badLogs.statusCode).toBe(400);
     expect(missingPod.statusCode).toBe(404);
   });
 
@@ -428,6 +495,30 @@ describe("resource API routes", () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/namespaces",
+    });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({
+      error: {
+        code: "KUBERNETES_UNAVAILABLE",
+        message: "Unable to reach Kubernetes API",
+        details: {},
+      },
+    });
+  });
+
+  it("maps Kubernetes pod log reader failures to 503", async () => {
+    app = createTestApp(
+      createReader({
+        async getPodLogs() {
+          throw new Error("log api timeout with implementation detail");
+        },
+      }),
+    );
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/pods/default/web/logs?container=app",
     });
 
     expect(response.statusCode).toBe(503);

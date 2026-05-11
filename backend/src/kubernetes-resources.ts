@@ -61,6 +61,39 @@ export interface KubernetesResourceReader {
   listWorkloads(options?: WorkloadListOptions): Promise<WorkloadItemDto[]>;
   listEvents(options?: EventListOptions): Promise<EventDto[]>;
   getPod(namespace: string, name: string): Promise<PodDetailDto | null>;
+  getPodLogs(options: PodLogReadOptions): Promise<PodLogsDto | null>;
+}
+
+export interface PodLogReadOptions {
+  namespace: string;
+  name: string;
+  container?: string;
+  tailLines: number;
+  previous: boolean;
+}
+
+export interface PodLogsDto {
+  kind: "PodLog";
+  namespace: string;
+  name: string;
+  container: string;
+  previous: boolean;
+  tailLines: number;
+  logs: string;
+}
+
+export class KubernetesResourceBadRequestError extends Error {
+  public constructor(message: string) {
+    super(message);
+    this.name = "KubernetesResourceBadRequestError";
+  }
+}
+
+export class KubernetesResourceNotFoundError extends Error {
+  public constructor(message: string) {
+    super(message);
+    this.name = "KubernetesResourceNotFoundError";
+  }
 }
 
 type KubernetesClients = ReturnType<
@@ -155,6 +188,14 @@ function filterWorkloads(
     .filter((item) => !options.kind || item.kind === options.kind)
     .filter((item) => includesSearch(item.status, options.status))
     .filter((item) => includesSearch(item.name, options.search));
+}
+
+function getKubernetesErrorCode(error: unknown): string | null {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    return String((error as { code: unknown }).code);
+  }
+
+  return null;
 }
 
 export class KubernetesClientResourceReader implements KubernetesResourceReader {
@@ -267,16 +308,91 @@ export class KubernetesClientResourceReader implements KubernetesResourceReader 
 
       return normalizePodDetail(pod, podEvents, podMetrics);
     } catch (error) {
-      if (typeof error === "object" && error !== null && "code" in error) {
-        const code = String((error as { code: unknown }).code);
-
-        if (code === "404") {
-          return null;
-        }
+      if (getKubernetesErrorCode(error) === "404") {
+        return null;
       }
 
       throw error;
     }
+  }
+
+  public async getPodLogs(
+    options: PodLogReadOptions,
+  ): Promise<PodLogsDto | null> {
+    let pod: V1Pod;
+
+    try {
+      pod = await this.clients.core.readNamespacedPod({
+        name: options.name,
+        namespace: options.namespace,
+      });
+    } catch (error) {
+      if (getKubernetesErrorCode(error) === "404") {
+        return null;
+      }
+
+      throw error;
+    }
+
+    const container = this.resolveLogContainer(pod, options.container);
+
+    try {
+      const logs = await this.clients.core.readNamespacedPodLog({
+        name: options.name,
+        namespace: options.namespace,
+        container,
+        previous: options.previous,
+        tailLines: options.tailLines,
+      });
+
+      return {
+        kind: "PodLog",
+        namespace: options.namespace,
+        name: options.name,
+        container,
+        previous: options.previous,
+        tailLines: options.tailLines,
+        logs,
+      };
+    } catch (error) {
+      const code = getKubernetesErrorCode(error);
+
+      if (code === "404" || (options.previous && code === "400")) {
+        throw new KubernetesResourceNotFoundError("Pod logs not found");
+      }
+
+      throw error;
+    }
+  }
+
+  private resolveLogContainer(
+    pod: V1Pod,
+    requested: string | undefined,
+  ): string {
+    const containers = pod.spec?.containers?.map((container) => container.name);
+    const containerNames = containers?.filter((name): name is string =>
+      Boolean(name),
+    );
+
+    if (!containerNames || containerNames.length === 0) {
+      throw new KubernetesResourceNotFoundError("Pod has no containers");
+    }
+
+    if (requested) {
+      if (!containerNames.includes(requested)) {
+        throw new KubernetesResourceNotFoundError("Container not found");
+      }
+
+      return requested;
+    }
+
+    if (containerNames.length > 1) {
+      throw new KubernetesResourceBadRequestError(
+        "container is required when Pod has multiple containers",
+      );
+    }
+
+    return containerNames[0];
   }
 
   private async listRawResources(): Promise<ResourceLists> {
@@ -440,6 +556,9 @@ export function createDefaultKubernetesResourceReader(): KubernetesResourceReade
         throw new Error("Kubernetes client is unavailable");
       },
       async getPod(): Promise<PodDetailDto | null> {
+        throw new Error("Kubernetes client is unavailable");
+      },
+      async getPodLogs(): Promise<PodLogsDto | null> {
         throw new Error("Kubernetes client is unavailable");
       },
     };

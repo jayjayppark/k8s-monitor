@@ -290,6 +290,28 @@ Query:
 
 container `usage.cpu`와 `usage.memory`는 metrics가 없으면 `null`입니다.
 
+### `GET /api/pods/{namespace}/{name}/logs`
+
+Query:
+
+- `container`: optional container name. Pod에 container가 하나면 생략할 수 있고, 여러 개면 필수입니다.
+- `tailLines`: optional recent line count. 기본값은 `100`, 최대값은 `500`입니다.
+- `previous`: optional `true` 또는 `false`. 기본값은 `false`이며, 종료된 이전 container log를 조회할 때 사용합니다.
+
+```json
+{
+  "kind": "PodLog",
+  "namespace": "default",
+  "name": "web-abc123",
+  "container": "web",
+  "previous": false,
+  "tailLines": 100,
+  "logs": "server started\nready\n"
+}
+```
+
+로그는 장기 저장하지 않고 응답으로만 반환합니다. follow/streaming, 검색, download/export는 지원하지 않습니다. 이전 container log가 없거나 지정한 container가 없으면 `404`, multi-container Pod에서 `container`를 생략하거나 `tailLines`가 범위를 벗어나면 `400`을 반환합니다.
+
 ### `GET /api/events`
 
 Query:

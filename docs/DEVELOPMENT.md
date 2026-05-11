@@ -131,6 +131,7 @@ MVP 런타임에 필요한 Kubernetes verb는 `get`, `list`, `watch`입니다. �
 대상 resource:
 
 - core API group: `nodes`, `namespaces`, `pods`, `services`, `events`.
+- core API group subresource: `pods/log`.
 - apps API group: `deployments`, `replicasets`, `statefulsets`, `daemonsets`.
 - metrics.k8s.io API group: `nodes`, `pods`.
 
@@ -151,6 +152,9 @@ rules:
   - apiGroups: [""]
     resources: ["nodes", "namespaces", "pods", "services", "events"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
   - apiGroups: ["apps"]
     resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
     verbs: ["get", "list", "watch"]
@@ -179,6 +183,7 @@ kubectl auth can-i list nodes
 kubectl auth can-i list pods --all-namespaces
 kubectl auth can-i list deployments.apps --all-namespaces
 kubectl auth can-i list nodes.metrics.k8s.io
+kubectl auth can-i get pods/log --all-namespaces
 kubectl auth can-i create pods --all-namespaces
 kubectl auth can-i delete pods --all-namespaces
 ```
@@ -208,6 +213,7 @@ curl http://127.0.0.1:3000/api/cluster/summary
 curl http://127.0.0.1:3000/api/nodes
 curl http://127.0.0.1:3000/api/namespaces
 curl http://127.0.0.1:3000/api/workloads
+curl "http://127.0.0.1:3000/api/pods/<namespace>/<pod-name>/logs?tailLines=100"
 curl "http://127.0.0.1:3000/api/events?limit=10"
 curl http://127.0.0.1:3000/api/alerts
 ```

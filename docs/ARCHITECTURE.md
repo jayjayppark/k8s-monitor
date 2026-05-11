@@ -60,10 +60,11 @@ Kubernetes cluster
 - Kubernetes API connectivity와 server version을 확인합니다.
 - metrics-server availability를 확인합니다.
 - Nodes, Namespaces, Pods, Services, Deployments, ReplicaSets, StatefulSets, DaemonSets, Events를 읽습니다.
+- Pod log subresource를 읽어 선택한 Pod/container의 bounded recent log를 반환합니다.
 - Kubernetes resource를 프론트엔드에 안전한 DTO로 정규화합니다.
 - unhealthy node, failed/pending pod, high restart count, recent warning event 같은 기본 alert candidate를 계산합니다.
 - Slack webhook이 설정된 경우 alert candidate를 Slack으로 보낼 수 있습니다.
-- raw Kubernetes object, kubeconfig, token, Secret 값을 API 응답에 포함하지 않습니다.
+- raw Kubernetes object, kubeconfig, token, Secret 값을 API 응답에 포함하지 않습니다. Pod 로그는 저장하지 않고 요청 응답으로만 반환합니다.
 - 공통 envelope, source status, error response 형식을 모든 endpoint에 적용합니다.
 
 ## 프론트엔드 책임
@@ -100,6 +101,7 @@ MVP의 Kubernetes 동작은 읽기 전용입니다.
 대상 resource:
 
 - core: nodes, namespaces, pods, services, events.
+- core subresource: pods/log.
 - apps: deployments, replicasets, statefulsets, daemonsets.
 - metrics.k8s.io: nodes, pods.
 

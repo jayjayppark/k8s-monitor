@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type { ApiEnvelope, ClusterSummaryDto } from "../src/index.ts";
+import type {
+  ApiEnvelope,
+  ClusterSummaryDto,
+  PodLogsDto,
+} from "../src/index.ts";
 
 describe("shared API contracts", () => {
   it("types cluster summary envelopes used by frontend and backend", () => {
@@ -53,5 +57,34 @@ describe("shared API contracts", () => {
     } satisfies ApiEnvelope<ClusterSummaryDto>;
 
     expect(response.data.pods.pending).toBe(1);
+  });
+
+  it("types pod log API responses", () => {
+    const response = {
+      data: {
+        kind: "PodLog",
+        namespace: "default",
+        name: "web-abc",
+        container: "app",
+        previous: false,
+        tailLines: 100,
+        logs: "started\nready\n",
+      },
+      meta: {
+        generatedAt: "2026-05-06T00:00:00.000Z",
+        cluster: {
+          name: "current",
+          serverVersion: "v1.30.0",
+        },
+        sources: [
+          {
+            name: "kubernetes",
+            status: "ok",
+          },
+        ],
+      },
+    } satisfies ApiEnvelope<PodLogsDto>;
+
+    expect(response.data.container).toBe("app");
   });
 });

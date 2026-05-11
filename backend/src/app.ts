@@ -19,9 +19,12 @@ import {
 } from "./kubernetes-health.ts";
 import {
   createDefaultKubernetesResourceReader,
+  KubernetesResourceBadRequestError,
+  KubernetesResourceNotFoundError,
   type KubernetesResourceReader,
   type KubernetesResourceSnapshot,
   type NodeListOptions,
+  type PodLogReadOptions,
   type WorkloadListOptions,
 } from "./kubernetes-resources.ts";
 import {
@@ -114,6 +117,9 @@ const WORKLOAD_KINDS = [
   "Service",
 ] as const;
 
+const DEFAULT_POD_LOG_TAIL_LINES = 100;
+const MAX_POD_LOG_TAIL_LINES = 500;
+
 function queryValue(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
@@ -134,6 +140,54 @@ function parseLimit(value: unknown): number | undefined {
   }
 
   return limit;
+}
+
+function parseBooleanQuery(value: unknown, name: string): boolean {
+  const raw = queryValue(value);
+
+  if (!raw) {
+    return false;
+  }
+
+  if (raw === "true") {
+    return true;
+  }
+
+  if (raw === "false") {
+    return false;
+  }
+
+  throw createBadRequestError(`${name} must be true or false`);
+}
+
+function parsePodLogOptions(
+  params: { namespace: string; name: string },
+  query: unknown,
+): PodLogReadOptions {
+  const queryParams = query as Record<string, unknown>;
+  const rawTailLines = queryValue(queryParams.tailLines);
+  const tailLines =
+    rawTailLines === undefined
+      ? DEFAULT_POD_LOG_TAIL_LINES
+      : Number(rawTailLines);
+
+  if (
+    !Number.isInteger(tailLines) ||
+    tailLines < 1 ||
+    tailLines > MAX_POD_LOG_TAIL_LINES
+  ) {
+    throw createBadRequestError(
+      `tailLines must be an integer between 1 and ${MAX_POD_LOG_TAIL_LINES}`,
+    );
+  }
+
+  return {
+    namespace: params.namespace,
+    name: params.name,
+    container: queryValue(queryParams.container),
+    tailLines,
+    previous: parseBooleanQuery(queryParams.previous, "previous"),
+  };
 }
 
 function parseNodeOptions(query: unknown): NodeListOptions {
@@ -438,6 +492,14 @@ function mapResourceError(error: unknown): ApiError {
     return error;
   }
 
+  if (error instanceof KubernetesResourceBadRequestError) {
+    return createBadRequestError(error.message);
+  }
+
+  if (error instanceof KubernetesResourceNotFoundError) {
+    return new ApiError(404, "NOT_FOUND", error.message);
+  }
+
   return createKubernetesUnavailableError();
 }
 
@@ -571,6 +633,30 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
 
       return reply.apiEnvelope(
         pod,
+        await getMetaOptions(kubernetesHealthChecker),
+      );
+    } catch (error) {
+      throw mapResourceError(error);
+    }
+  });
+
+  app.get<{
+    Params: {
+      namespace: string;
+      name: string;
+    };
+  }>("/api/pods/:namespace/:name/logs", async (request, reply) => {
+    try {
+      const podLogs = await kubernetesResourceReader.getPodLogs(
+        parsePodLogOptions(request.params, request.query),
+      );
+
+      if (!podLogs) {
+        throw new ApiError(404, "NOT_FOUND", "Pod not found");
+      }
+
+      return reply.apiEnvelope(
+        podLogs,
         await getMetaOptions(kubernetesHealthChecker),
       );
     } catch (error) {
