@@ -76,7 +76,7 @@ Kubernetes cluster
 - metrics-server가 없는 경우 usage unavailable 상태를 명확히 보여줍니다.
 - credential 또는 Kubernetes secret을 저장하거나 표시하지 않습니다.
 
-현재 프론트엔드는 React + Vite 런타임으로 구현되어 있습니다. Overview 화면은 `/api/cluster/summary`, `/api/alerts`, `/api/events`를 호출해 node health, risk pod count, active alert, warning event 중심의 summary card, degraded source banner, active alert panel, recent events table을 표시하고 주기적으로 갱신합니다. App shell은 `/api/alerts`를 주기적으로 조회해 새 active alert가 생기면 새로고침 없이 우하단 in-app toast를 표시합니다. Nodes, Namespaces, Workloads, Events 화면은 같은 app shell과 API client를 기반으로 list/filter/table UI를 제공합니다. Nodes와 Pod detail의 CPU/memory는 Kubernetes raw quantity만 노출하지 않고 allocatable 또는 request 대비 사용량과 사용률을 함께 표시합니다. Workloads 화면에서 Pod 항목을 선택하면 `/api/pods/{namespace}/{name}`으로 Pod detail을 조회해 선택한 행 바로 아래에 펼쳐 표시합니다. Pod detail 안에서는 `/api/pods/{namespace}/{name}/logs`를 호출해 선택한 container의 현재 또는 previous 로그를 제한된 line count로 표시합니다.
+현재 프론트엔드는 React + Vite 런타임으로 구현되어 있습니다. Overview 화면은 `/api/cluster/summary`, `/api/alerts`, `/api/events`를 호출해 node health, risk pod count, active alert, warning event 중심의 summary card, degraded source banner, active alert panel, recent events table을 표시하고 5초마다 갱신합니다. Recent events table은 실제 recent event가 없을 때 발표와 초기 상태 확인을 위한 example event를 표시하고, 실제 Kubernetes event가 반환되면 example을 대체합니다. App shell은 `/api/alerts`를 5초마다 조회해 새 active alert가 생기면 새로고침 없이 우하단 in-app toast를 표시합니다. Nodes, Namespaces, Workloads, Events 화면은 같은 app shell과 API client를 기반으로 list/filter/table UI를 제공합니다. Nodes와 Pod detail의 CPU/memory는 Kubernetes raw quantity만 노출하지 않고 allocatable 또는 request 대비 사용량과 사용률을 함께 표시합니다. Workloads 화면에서 Pod 항목을 선택하면 `/api/pods/{namespace}/{name}`으로 Pod detail을 조회해 선택한 행 바로 아래에 펼쳐 표시합니다. Pod detail 안에서는 `/api/pods/{namespace}/{name}/logs`를 호출해 선택한 container의 현재 또는 previous 로그를 제한된 line count로 표시합니다.
 
 개발 중 기본 API 호출은 same-origin `/api` 경로를 사용합니다. Vite dev server는 `/api` 요청을 `VITE_BACKEND_PROXY_TARGET` 또는 기본값 `http://127.0.0.1:3000`으로 proxy합니다. 브라우저가 직접 백엔드 origin을 호출해야 하는 환경에서는 `VITE_API_BASE_URL`로 API base URL을 지정할 수 있습니다.
 
@@ -112,7 +112,7 @@ metrics-server 권한과 availability는 optional입니다. metrics를 사용할
 초기 구현은 단순 polling을 기준으로 합니다.
 
 - 백엔드는 요청 시 Kubernetes API를 조회하거나 짧은 in-memory cache를 사용할 수 있습니다.
-- 프론트엔드는 Overview summary, alert, recent event endpoint와 app shell alert notification endpoint를 일정 interval로 다시 호출합니다.
+- 프론트엔드는 Overview summary, alert, recent event endpoint와 app shell alert notification endpoint를 5초 interval로 다시 호출합니다.
 - watch, Server-Sent Events, WebSocket은 MVP 이후 필요가 명확할 때 도입합니다.
 
 ## 알림 전략

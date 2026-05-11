@@ -67,12 +67,13 @@ MVP는 하나의 Kubernetes 클러스터 상태를 빠르게 파악하는 읽기
 - involved object.
 - count, last timestamp.
 - namespace, type, involved kind, limit filter.
+- Overview recent events 영역은 실제 recent event가 없을 때 발표와 초기 상태 확인을 위해 example event 몇 개를 표시하고, 실제 Kubernetes event가 반환되면 example을 대체합니다.
 
 ### Alerts
 
 - unhealthy node, failed/pending pod, high restart count, recent warning event, Kubernetes API degraded 상태를 알림 후보로 표시합니다.
 - MVP의 브라우저 알림은 in-app banner, notification panel, 우하단 in-app toast를 우선합니다.
-- 프론트엔드는 alert를 주기적으로 다시 조회해 새 active alert가 생기면 새로고침 없이 우하단 toast로 표시합니다.
+- 프론트엔드는 alert를 5초마다 다시 조회해 새 active alert가 생기면 새로고침 없이 우하단 toast로 표시합니다.
 - 브라우저 Web Notification API 사용은 사용자가 명시적으로 허용한 경우에만 선택적으로 사용합니다.
 - Slack 알림은 webhook 기반으로 시작하며, secret은 환경 변수로만 제공합니다.
 - Slack 알림은 중복 전송을 줄이기 위해 같은 alert key에 대한 간단한 cooldown을 적용합니다.

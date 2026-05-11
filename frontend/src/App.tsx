@@ -66,9 +66,54 @@ const workloadKinds: (WorkloadKind | "all")[] = [
 
 type PodLogTailLines = "100" | "500";
 
-const OVERVIEW_REFRESH_INTERVAL_MS = 10_000;
-const ALERT_NOTIFICATION_INTERVAL_MS = 10_000;
+const OVERVIEW_REFRESH_INTERVAL_MS = 5_000;
+const ALERT_NOTIFICATION_INTERVAL_MS = 5_000;
 const MAX_VISIBLE_ALERT_NOTIFICATIONS = 3;
+
+const demoRecentEvents: EventDto[] = [
+  {
+    namespace: "demo",
+    type: "Warning",
+    reason: "BackOff",
+    message: "Container is restarting repeatedly",
+    involvedObject: {
+      kind: "Pod",
+      namespace: "demo",
+      name: "api-crash-loop",
+      uid: null,
+    },
+    count: 3,
+    lastTimestamp: null,
+  },
+  {
+    namespace: "demo",
+    type: "Warning",
+    reason: "FailedScheduling",
+    message: "Pod is waiting for available node capacity",
+    involvedObject: {
+      kind: "Pod",
+      namespace: "demo",
+      name: "pending-worker",
+      uid: null,
+    },
+    count: 1,
+    lastTimestamp: null,
+  },
+  {
+    namespace: "demo",
+    type: "Normal",
+    reason: "Pulled",
+    message: "Container image pulled successfully",
+    involvedObject: {
+      kind: "Pod",
+      namespace: "demo",
+      name: "healthy-web",
+      uid: null,
+    },
+    count: 1,
+    lastTimestamp: null,
+  },
+];
 
 function SourceBanner({ envelope }: { envelope: ApiEnvelope<unknown> }) {
   const degradedSources = getDegradedSources(envelope.meta.sources);
@@ -223,28 +268,23 @@ function RecentEvents({
 }: {
   events: ApiEnvelope<ListResponse<EventDto>>;
 }) {
-  if (events.data.items.length === 0) {
-    return (
-      <section className="panel">
-        <h2>Recent events</h2>
-        <EmptyState
-          title="No events"
-          message="The backend returned no events."
-        />
-      </section>
-    );
-  }
+  const isShowingExamples = events.data.items.length === 0;
+  const eventItems = isShowingExamples ? demoRecentEvents : events.data.items;
 
   return (
     <section className="panel">
       <div className="panel-heading">
         <div>
           <h2>Recent events</h2>
-          <p>Latest Kubernetes events returned by the backend</p>
+          <p>
+            {isShowingExamples
+              ? "Example events shown until Kubernetes returns recent events"
+              : "Latest Kubernetes events returned by the backend"}
+          </p>
         </div>
       </div>
       <DataTable
-        items={events.data.items}
+        items={eventItems}
         getKey={(event) =>
           `${event.namespace ?? "_"}:${event.involvedObject.kind}:${event.involvedObject.name}:${event.reason}:${event.lastTimestamp ?? ""}`
         }
@@ -266,9 +306,17 @@ function RecentEvents({
             render: (event) => event.reason,
           },
           {
+            key: "message",
+            header: "Message",
+            render: (event) => event.message,
+          },
+          {
             key: "last",
             header: "Last seen",
-            render: (event) => formatDateTime(event.lastTimestamp),
+            render: (event) =>
+              isShowingExamples
+                ? "Example"
+                : formatDateTime(event.lastTimestamp),
           },
         ]}
       />

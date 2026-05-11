@@ -728,6 +728,19 @@ describe("App resource views", () => {
     );
   });
 
+  it("shows example recent events when the backend has no events", async () => {
+    root = await renderApp(() => ({ items: [] }));
+
+    await waitForText(
+      "Example events shown until Kubernetes returns recent events",
+    );
+
+    expect(document.body.textContent).toContain("BackOff");
+    expect(document.body.textContent).toContain("FailedScheduling");
+    expect(document.body.textContent).toContain("Pod/api-crash-loop");
+    expect(document.body.textContent).toContain("Example");
+  });
+
   it("shows a bottom-right alert notification from polling without navigation refresh", async () => {
     vi.useFakeTimers();
     let alertRequests = 0;
@@ -766,7 +779,7 @@ describe("App resource views", () => {
     expect(document.body.textContent).not.toContain("Pod crashy is restarting");
 
     await act(async () => {
-      vi.advanceTimersByTime(10_000);
+      vi.advanceTimersByTime(5_000);
       await Promise.resolve();
       await Promise.resolve();
     });
