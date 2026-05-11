@@ -7,6 +7,7 @@ import type {
   NamespaceDto,
   NodeDto,
   PodDetailDto,
+  PodLogsDto,
   WorkloadItemDto,
   WorkloadKind,
 } from "@k8s-monitor/shared";
@@ -47,6 +48,26 @@ function createQuery(params: Record<string, string | undefined>): string {
   const serialized = query.toString();
 
   return serialized ? `?${serialized}` : "";
+}
+
+function createPodLogsQuery(params: {
+  container?: string;
+  tailLines: "100" | "500";
+  previous: boolean;
+}): string {
+  const query = new URLSearchParams();
+
+  if (params.container) {
+    query.set("container", params.container);
+  }
+
+  query.set("tailLines", params.tailLines);
+
+  if (params.previous) {
+    query.set("previous", "true");
+  }
+
+  return `?${query.toString()}`;
 }
 
 async function requestEnvelope<TData>(
@@ -160,7 +181,24 @@ export function getPodDetail(
   );
 }
 
+export function getPodLogs(
+  namespace: string,
+  name: string,
+  options: {
+    container?: string;
+    tailLines: "100" | "500";
+    previous: boolean;
+  },
+  signal?: AbortSignal,
+): Promise<ApiEnvelope<PodLogsDto>> {
+  return requestEnvelope<PodLogsDto>(
+    `/api/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/logs${createPodLogsQuery(options)}`,
+    signal,
+  );
+}
+
 export const apiInternals = {
   createApiUrl,
   createQuery,
+  createPodLogsQuery,
 };

@@ -44,9 +44,10 @@
 6. [x] #23 nodes와 namespaces view를 구현합니다.
 7. [x] #24 workloads view와 filter를 구현합니다.
 8. [x] #25 pod detail view를 구현합니다.
-9. [x] #26 events view 또는 recent events panel을 구현합니다.
-10. [x] #35 브라우저 alert banner/notification panel을 구현합니다.
-11. [x] #27 frontend regression/responsive checks를 추가합니다.
+9. [x] #38 Pod detail에서 최근 container 로그를 표시합니다.
+10. [x] #26 events view 또는 recent events panel을 구현합니다.
+11. [x] #35 브라우저 alert banner/notification panel을 구현합니다.
+12. [x] #27 frontend regression/responsive checks를 추가합니다.
 
 ## 5. 실행 문서와 검증
 

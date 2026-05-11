@@ -220,6 +220,26 @@ main {
   padding: 0 10px;
 }
 
+.checkbox-control .checkbox-box {
+  align-items: center;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  color: #1d2433;
+  display: flex;
+  font-size: 14px;
+  font-weight: 400;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 10px;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.checkbox-control input {
+  min-height: auto;
+  padding: 0;
+}
+
 .secondary-button,
 .link-button {
   cursor: pointer;
@@ -344,6 +364,34 @@ main {
 
 .expanded-row table {
   min-width: 620px;
+}
+
+.log-section {
+  margin-top: 18px;
+}
+
+.log-heading {
+  align-items: end;
+}
+
+.log-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.log-output {
+  background: #111827;
+  border-radius: 8px;
+  color: #f9fafb;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0;
+  max-height: 360px;
+  overflow: auto;
+  padding: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .table-wrap {

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App.tsx";
 
-type FetchHandler = (url: URL) => unknown | undefined;
+type FetchHandler = (url: URL) => unknown | undefined | Promise<unknown>;
 
 (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
@@ -104,6 +104,68 @@ const workloads = [
   },
 ];
 
+const podDetail = {
+  kind: "Pod",
+  namespace: "default",
+  name: "web-abc",
+  status: "Running",
+  nodeName: "worker-1",
+  podIP: "10.244.0.5",
+  ready: "2/2",
+  restarts: 1,
+  containers: [
+    {
+      name: "app",
+      ready: true,
+      restartCount: 1,
+      image: "example/web:1.0.0",
+      resources: {
+        requests: {
+          cpu: { raw: "100m", value: 100, unit: "millicores" },
+          memory: { raw: "128Mi", value: 134217728, unit: "bytes" },
+        },
+        limits: {
+          cpu: null,
+          memory: null,
+        },
+      },
+      usage: {
+        cpu: null,
+        memory: null,
+      },
+    },
+    {
+      name: "sidecar",
+      ready: true,
+      restartCount: 0,
+      image: "example/sidecar:1.0.0",
+      resources: {
+        requests: {
+          cpu: null,
+          memory: null,
+        },
+        limits: {
+          cpu: null,
+          memory: null,
+        },
+      },
+      usage: {
+        cpu: null,
+        memory: null,
+      },
+    },
+  ],
+  events: [
+    {
+      type: "Warning",
+      reason: "BackOff",
+      message: "Back-off restarting failed container",
+      count: 1,
+      lastTimestamp: "2026-05-06T00:00:00.000Z",
+    },
+  ],
+};
+
 const summary = {
   nodes: {
     total: 2,
@@ -165,7 +227,7 @@ async function renderApp(handler: FetchHandler): Promise<Root> {
 
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const url = new URL(String(input), "http://localhost");
-    const handledResponse = handler(url);
+    const handledResponse = await handler(url);
     const response =
       url.pathname === "/api/cluster/summary"
         ? summary
@@ -244,6 +306,20 @@ async function changeControl(label: string, value: string): Promise<void> {
       value,
     });
     control.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+async function changeCheckbox(label: string, checked: boolean): Promise<void> {
+  const control = findControl(label);
+
+  if (!(control instanceof HTMLInputElement)) {
+    throw new Error(`Control is not a checkbox: ${label}`);
+  }
+
+  await act(async () => {
+    if (control.checked !== checked) {
+      control.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    }
   });
 }
 
@@ -369,46 +445,17 @@ describe("App resource views", () => {
         return { items };
       }
       if (url.pathname === "/api/pods/default/web-abc") {
+        return podDetail;
+      }
+      if (url.pathname === "/api/pods/default/web-abc/logs") {
         return {
-          kind: "Pod",
+          kind: "PodLog",
           namespace: "default",
           name: "web-abc",
-          status: "Running",
-          nodeName: "worker-1",
-          podIP: "10.244.0.5",
-          ready: "1/1",
-          restarts: 0,
-          containers: [
-            {
-              name: "app",
-              ready: true,
-              restartCount: 0,
-              image: "example/web:1.0.0",
-              resources: {
-                requests: {
-                  cpu: { raw: "100m", value: 100, unit: "millicores" },
-                  memory: { raw: "128Mi", value: 134217728, unit: "bytes" },
-                },
-                limits: {
-                  cpu: null,
-                  memory: null,
-                },
-              },
-              usage: {
-                cpu: null,
-                memory: null,
-              },
-            },
-          ],
-          events: [
-            {
-              type: "Warning",
-              reason: "BackOff",
-              message: "Back-off restarting failed container",
-              count: 1,
-              lastTimestamp: "2026-05-06T00:00:00.000Z",
-            },
-          ],
+          container: url.searchParams.get("container") ?? "app",
+          previous: url.searchParams.get("previous") === "true",
+          tailLines: Number(url.searchParams.get("tailLines") ?? "100"),
+          logs: "server started\nready\n",
         };
       }
 
@@ -434,11 +481,160 @@ describe("App resource views", () => {
 
     await waitForText("Pod default/web-abc");
     expect(document.body.textContent).toContain("example/web:1.0.0");
+    expect(document.body.textContent).toContain("server started");
     expect(document.body.textContent).toContain(
       "usage unavailable / 0.10 cores request",
     );
     expect(document.querySelector(".expanded-row")).not.toBeNull();
     expect(document.querySelector(".table-wrap")).not.toBeNull();
+  });
+
+  it("loads pod logs, switches containers, and requests previous logs", async () => {
+    const logRequests: string[] = [];
+
+    root = await renderApp((url) => {
+      if (url.pathname === "/api/workloads") {
+        return { items: workloads };
+      }
+      if (url.pathname === "/api/pods/default/web-abc") {
+        return podDetail;
+      }
+      if (url.pathname === "/api/pods/default/web-abc/logs") {
+        logRequests.push(`${url.pathname}${url.search}`);
+
+        return {
+          kind: "PodLog",
+          namespace: "default",
+          name: "web-abc",
+          container: url.searchParams.get("container") ?? "app",
+          previous: url.searchParams.get("previous") === "true",
+          tailLines: Number(url.searchParams.get("tailLines") ?? "100"),
+          logs:
+            url.searchParams.get("container") === "sidecar"
+              ? "sidecar ready\n"
+              : url.searchParams.get("previous") === "true"
+                ? "previous crash\n"
+                : "app ready\n",
+        };
+      }
+
+      return { items: [] };
+    });
+
+    await clickNav("Workloads");
+    await waitForText("web-abc");
+    await act(async () => {
+      document
+        .querySelector(".link-button")
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await waitForText("app ready");
+    expect(logRequests).toContain(
+      "/api/pods/default/web-abc/logs?container=app&tailLines=100",
+    );
+
+    await changeControl("Container", "sidecar");
+    await waitForText("sidecar ready");
+    expect(logRequests).toContain(
+      "/api/pods/default/web-abc/logs?container=sidecar&tailLines=100",
+    );
+
+    await changeControl("Lines", "500");
+    expect(logRequests).toContain(
+      "/api/pods/default/web-abc/logs?container=sidecar&tailLines=500",
+    );
+
+    await changeControl("Container", "app");
+    await changeCheckbox("Mode", true);
+    await waitForText("previous crash");
+    expect(logRequests).toContain(
+      "/api/pods/default/web-abc/logs?container=app&tailLines=500&previous=true",
+    );
+  });
+
+  it("shows pod log loading and empty states", async () => {
+    let resolveLogs:
+      | ((value: {
+          kind: string;
+          namespace: string;
+          name: string;
+          container: string;
+          previous: boolean;
+          tailLines: number;
+          logs: string;
+        }) => void)
+      | undefined;
+    const pendingLogs = new Promise<unknown>((resolve) => {
+      resolveLogs = resolve;
+    });
+
+    root = await renderApp((url) => {
+      if (url.pathname === "/api/workloads") {
+        return { items: workloads };
+      }
+      if (url.pathname === "/api/pods/default/web-abc") {
+        return podDetail;
+      }
+      if (url.pathname === "/api/pods/default/web-abc/logs") {
+        return pendingLogs;
+      }
+
+      return { items: [] };
+    });
+
+    await clickNav("Workloads");
+    await waitForText("web-abc");
+    await act(async () => {
+      document
+        .querySelector(".link-button")
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await waitForText("Loading pod logs");
+
+    await act(async () => {
+      resolveLogs?.({
+        kind: "PodLog",
+        namespace: "default",
+        name: "web-abc",
+        container: "app",
+        previous: false,
+        tailLines: 100,
+        logs: "",
+      });
+      await pendingLogs;
+    });
+
+    await waitForText("No recent logs");
+  });
+
+  it("shows pod log error states without breaking pod detail", async () => {
+    root = await renderApp((url) => {
+      if (url.pathname === "/api/workloads") {
+        return { items: workloads };
+      }
+      if (url.pathname === "/api/pods/default/web-abc") {
+        return podDetail;
+      }
+      if (url.pathname === "/api/pods/default/web-abc/logs") {
+        return new Error("Pod logs not found");
+      }
+
+      return { items: [] };
+    });
+
+    await clickNav("Workloads");
+    await waitForText("web-abc");
+    await act(async () => {
+      document
+        .querySelector(".link-button")
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await waitForText("TEST_ERROR: Pod logs not found");
+    expect(document.body.textContent).toContain("example/web:1.0.0");
+    expect(document.querySelector(".log-section")).not.toBeNull();
   });
 
   it("renders workload empty and pod not-found states", async () => {

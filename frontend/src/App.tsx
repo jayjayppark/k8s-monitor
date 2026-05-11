@@ -9,6 +9,7 @@ import type {
   NamespaceDto,
   NodeDto,
   PodDetailDto,
+  PodLogsDto,
   WorkloadItemDto,
   WorkloadKind,
 } from "@k8s-monitor/shared";
@@ -20,6 +21,7 @@ import {
   getNamespaces,
   getNodes,
   getPodDetail,
+  getPodLogs,
   getRecentEvents,
   getWorkloads,
 } from "./api.ts";
@@ -61,6 +63,8 @@ const workloadKinds: (WorkloadKind | "all")[] = [
   "DaemonSet",
   "Service",
 ];
+
+type PodLogTailLines = "100" | "500";
 
 function SourceBanner({ envelope }: { envelope: ApiEnvelope<unknown> }) {
   const degradedSources = getDegradedSources(envelope.meta.sources);
@@ -638,6 +642,7 @@ function PodDetailContent({
           ]}
         />
       )}
+      <PodLogsPanel key={`${pod.namespace}/${pod.name}`} pod={pod} />
       <h3>Recent events</h3>
       {pod.events.length === 0 ? (
         <EmptyState
@@ -676,6 +681,131 @@ function PodDetailContent({
         />
       )}
     </section>
+  );
+}
+
+function PodLogsPanel({ pod }: { pod: PodDetailDto }) {
+  const [containerName, setContainerName] = useState(
+    pod.containers[0]?.name ?? "",
+  );
+  const [tailLines, setTailLines] = useState<PodLogTailLines>("100");
+  const [previous, setPrevious] = useState(false);
+  const hasContainers = pod.containers.length > 0;
+  const selectedContainer =
+    pod.containers.find((container) => container.name === containerName) ??
+    pod.containers[0];
+  const effectiveContainerName = selectedContainer?.name ?? "";
+  const loadLogs = useCallback(
+    (signal: AbortSignal) =>
+      getPodLogs(
+        pod.namespace,
+        pod.name,
+        {
+          container: effectiveContainerName || undefined,
+          tailLines,
+          previous,
+        },
+        signal,
+      ),
+    [effectiveContainerName, pod.name, pod.namespace, previous, tailLines],
+  );
+  const logs = useApiResource(loadLogs);
+
+  if (!hasContainers) {
+    return (
+      <>
+        <h3>Recent logs</h3>
+        <EmptyState
+          title="No log target"
+          message="The backend returned no containers for this Pod."
+        />
+      </>
+    );
+  }
+
+  return (
+    <section className="log-section" aria-label="Pod logs">
+      <div className="panel-heading log-heading">
+        <div>
+          <h3>Recent logs</h3>
+          <p>
+            {previous ? "Previous" : "Current"} container output · {tailLines}{" "}
+            lines
+          </p>
+        </div>
+        <FilterBar>
+          <SelectFilter
+            label="Container"
+            value={effectiveContainerName}
+            onChange={setContainerName}
+            options={pod.containers.map((container) => ({
+              label: container.name,
+              value: container.name,
+            }))}
+          />
+          <SelectFilter
+            label="Lines"
+            value={tailLines}
+            onChange={(value) => setTailLines(value as PodLogTailLines)}
+            options={[
+              { label: "100", value: "100" },
+              { label: "500", value: "500" },
+            ]}
+          />
+          <label className="filter-control checkbox-control">
+            <span>Mode</span>
+            <span className="checkbox-box">
+              <input
+                checked={previous}
+                type="checkbox"
+                onChange={(event) => setPrevious(event.target.checked)}
+              />
+              Previous logs
+            </span>
+          </label>
+        </FilterBar>
+      </div>
+      <PodLogsContent resource={logs} />
+    </section>
+  );
+}
+
+function PodLogsContent({
+  resource,
+}: {
+  resource: {
+    data: ApiEnvelope<PodLogsDto> | null;
+    error: string | null;
+    loading: boolean;
+  };
+}) {
+  if (resource.loading && !resource.data) {
+    return <LoadingState title="Loading pod logs" />;
+  }
+
+  if (resource.error || !resource.data) {
+    return (
+      <ErrorState
+        title="Unable to load pod logs"
+        message={resource.error ?? "No log response was returned."}
+      />
+    );
+  }
+
+  const logText = resource.data.data.logs;
+
+  return (
+    <div className="log-panel">
+      <SourceBanner envelope={resource.data} />
+      {logText.trim().length === 0 ? (
+        <EmptyState
+          title="No recent logs"
+          message="The selected container returned an empty log response."
+        />
+      ) : (
+        <pre className="log-output">{logText}</pre>
+      )}
+    </div>
   );
 }
 
