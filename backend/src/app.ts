@@ -35,6 +35,10 @@ import {
   createSlackAlertNotifierFromEnv,
   type SlackAlertNotifier,
 } from "./slack-alerts.ts";
+import {
+  KubectlCommandValidationError,
+  runKubectlCommand,
+} from "./kubectl-command.ts";
 
 export interface HealthResponse {
   status: "ok";
@@ -106,6 +110,16 @@ interface SummaryResponse {
     critical: number;
     warning: number;
   };
+}
+
+interface KubectlCommandRequest {
+  command?: unknown;
+}
+
+interface KubectlCommandResult {
+  command: string;
+  output: string;
+  exitCode: 0;
 }
 
 const WORKLOAD_KINDS = [
@@ -500,6 +514,10 @@ function mapResourceError(error: unknown): ApiError {
     return new ApiError(404, "NOT_FOUND", error.message);
   }
 
+  if (error instanceof KubectlCommandValidationError) {
+    return createBadRequestError(error.message);
+  }
+
   return createKubernetesUnavailableError();
 }
 
@@ -614,6 +632,34 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       throw mapResourceError(error);
     }
   });
+
+  app.post<{ Body: KubectlCommandRequest }>(
+    "/api/kubectl",
+    async (request, reply) => {
+      try {
+        if (typeof request.body?.command !== "string") {
+          throw createBadRequestError("command is required");
+        }
+
+        const output = await runKubectlCommand(
+          kubernetesResourceReader,
+          request.body.command,
+        );
+        const result: KubectlCommandResult = {
+          command: request.body.command.trim(),
+          output,
+          exitCode: 0,
+        };
+
+        return reply.apiEnvelope(
+          result,
+          await getMetaOptions(kubernetesHealthChecker),
+        );
+      } catch (error) {
+        throw mapResourceError(error);
+      }
+    },
+  );
 
   app.get<{
     Params: {

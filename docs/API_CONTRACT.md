@@ -312,6 +312,40 @@ Query:
 
 로그는 장기 저장하지 않고 응답으로만 반환합니다. follow/streaming, 검색, download/export는 지원하지 않습니다. 이전 container log가 없거나 지정한 container가 없으면 `404`, multi-container Pod에서 `container`를 생략하거나 `tailLines`가 범위를 벗어나면 `400`을 반환합니다.
 
+### `POST /api/kubectl`
+
+읽기 전용 Kubectl 콘솔 명령을 실행합니다. 백엔드는 셸 또는 `kubectl` 바이너리를 실행하지 않고 허용된 명령을 Kubernetes API 조회로 변환합니다.
+
+지원 명령:
+
+- `kubectl get nodes|namespaces|pods|deployments|replicasets|statefulsets|daemonsets|services|events`
+- `kubectl describe pod <name> -n <namespace>`
+- `kubectl logs <pod> -n <namespace> [-c <container>] [--previous] [--tail=<1-500>]`
+
+지원 flag:
+
+- `-n`, `--namespace`
+- `-A`, `--all-namespaces` for `get`
+- `-c`, `--container` for `logs`
+- `--previous` for `logs`
+- `--tail` 또는 `--tail=<line count>` for `logs`
+
+```json
+{
+  "command": "kubectl get pods -A"
+}
+```
+
+```json
+{
+  "command": "kubectl get pods -A",
+  "output": "NAMESPACE  NAME  STATUS  READY  RESTARTS  AGE\n...",
+  "exitCode": 0
+}
+```
+
+`apply`, `delete`, `patch`, `edit`, `scale`, `rollout`, `exec`, `port-forward`처럼 resource mutation 또는 원격 실행이 가능한 명령은 지원하지 않으며 `400`을 반환합니다.
+
 ### `GET /api/events`
 
 Query:

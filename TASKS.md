@@ -48,6 +48,7 @@
 10. [x] #26 events view 또는 recent events panel을 구현합니다.
 11. [x] #35 브라우저 alert banner/notification panel을 구현합니다.
 12. [x] #27 frontend regression/responsive checks를 추가합니다.
+13. [x] 읽기 전용 Kubectl 콘솔 탭과 API를 추가합니다.
 
 ## 5. 실행 문서와 검증
 

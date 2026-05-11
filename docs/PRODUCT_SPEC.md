@@ -69,6 +69,14 @@ MVP는 하나의 Kubernetes 클러스터 상태를 빠르게 파악하는 읽기
 - namespace, type, involved kind, limit filter.
 - Overview recent events 영역은 실제 recent event가 없을 때 발표와 초기 상태 확인을 위해 example event 몇 개를 표시하고, 실제 Kubernetes event가 반환되면 example을 대체합니다.
 
+### Kubectl
+
+- 별도 Kubectl 탭에서 읽기 전용 kubectl-like 명령을 입력하고 결과를 확인합니다.
+- 프론트엔드는 명령 문자열을 백엔드 API로 보내며 Kubernetes API 또는 kubeconfig에 직접 접근하지 않습니다.
+- 백엔드는 셸의 `kubectl` 바이너리를 실행하지 않고 허용된 읽기 전용 명령만 해석해 Kubernetes API로 조회합니다.
+- 지원 명령은 `kubectl get`의 nodes, namespaces, pods, deployments, replicasets, statefulsets, daemonsets, services, events 조회와 `kubectl describe pod`, `kubectl logs`입니다.
+- `apply`, `delete`, `patch`, `edit`, `scale`, `rollout`, `exec`, `port-forward` 같은 mutation 또는 원격 실행 명령은 지원하지 않습니다.
+
 ### Alerts
 
 - unhealthy node, failed/pending pod, high restart count, recent warning event, Kubernetes API degraded 상태를 알림 후보로 표시합니다.
@@ -82,7 +90,7 @@ MVP는 하나의 Kubernetes 클러스터 상태를 빠르게 파악하는 읽기
 
 - Kubernetes resource 생성/수정/삭제.
 - live log streaming, log search, log download/export, long-term log storage.
-- exec, port-forward.
+- arbitrary kubectl shell execution, exec, port-forward.
 - multi-cluster management.
 - user authentication/RBAC administration UI.
 - 복잡한 alert routing, escalation, silence, on-call schedule 관리.

@@ -366,6 +366,66 @@ describe("resource API routes", () => {
     });
   });
 
+  it("runs supported read-only kubectl commands through the API", async () => {
+    app = createTestApp();
+
+    const [getPods, describePod, logs] = await Promise.all([
+      app.inject({
+        method: "POST",
+        url: "/api/kubectl",
+        payload: {
+          command: "kubectl get pods -A",
+        },
+      }),
+      app.inject({
+        method: "POST",
+        url: "/api/kubectl",
+        payload: {
+          command: "kubectl describe pod web -n default",
+        },
+      }),
+      app.inject({
+        method: "POST",
+        url: "/api/kubectl",
+        payload: {
+          command: "kubectl logs web -n default -c app --tail=100",
+        },
+      }),
+    ]);
+
+    expect(getPods.statusCode).toBe(200);
+    expect(getPods.json().data.output).toContain("NAMESPACE");
+    expect(getPods.json().data.output).toMatch(/default\s+web\s+Running/);
+    expect(describePod.statusCode).toBe(200);
+    expect(describePod.json().data.output).toContain("Name: web");
+    expect(logs.statusCode).toBe(200);
+    expect(logs.json().data).toMatchObject({
+      command: "kubectl logs web -n default -c app --tail=100",
+      exitCode: 0,
+      output: "started\nready\n",
+    });
+  });
+
+  it("rejects unsupported kubectl mutation commands", async () => {
+    app = createTestApp();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/kubectl",
+      payload: {
+        command: "kubectl delete pod web -n default",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "BAD_REQUEST",
+        message: "delete is not supported by the read-only kubectl console",
+      },
+    });
+  });
+
   it("maps unavailable previous pod logs to 404", async () => {
     app = createTestApp(
       createReader({

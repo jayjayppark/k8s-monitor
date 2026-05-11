@@ -458,6 +458,62 @@ main {
   word-break: break-word;
 }
 
+.kubectl-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.command-form {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.command-input {
+  display: grid;
+  gap: 4px;
+}
+
+.command-input span,
+.command-result-heading span {
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.command-input input {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  min-height: 42px;
+  padding: 0 12px;
+}
+
+.command-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.command-result {
+  display: grid;
+  gap: 10px;
+}
+
+.command-result-heading {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.command-result-heading strong {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .table-wrap {
   overflow-x: auto;
 }
@@ -550,7 +606,9 @@ th {
   }
 
   .panel-heading,
-  .alert-item {
+  .alert-item,
+  .command-form,
+  .command-result-heading {
     display: grid;
   }
 

@@ -6,7 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App.tsx";
 
-type FetchHandler = (url: URL) => unknown | undefined | Promise<unknown>;
+type FetchHandler = (
+  url: URL,
+  init?: RequestInit,
+) => unknown | undefined | Promise<unknown>;
 
 (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
@@ -243,9 +246,9 @@ async function renderApp(handler: FetchHandler): Promise<Root> {
   document.body.append(rootElement);
   const root = createRoot(rootElement);
 
-  vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = new URL(String(input), "http://localhost");
-    const handledResponse = await handler(url);
+    const handledResponse = await handler(url, init);
     const response =
       url.pathname === "/api/cluster/summary"
         ? summary
@@ -338,6 +341,20 @@ async function changeCheckbox(label: string, checked: boolean): Promise<void> {
     if (control.checked !== checked) {
       control.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     }
+  });
+}
+
+async function submitForm(selector: string): Promise<void> {
+  const form = document.querySelector(selector);
+
+  if (!(form instanceof HTMLFormElement)) {
+    throw new Error(`Unable to find form: ${selector}`);
+  }
+
+  await act(async () => {
+    form.dispatchEvent(
+      new Event("submit", { bubbles: true, cancelable: true }),
+    );
   });
 }
 
@@ -904,6 +921,36 @@ describe("App resource views", () => {
     expect(globalThis.fetch).toHaveBeenCalledWith(
       "/api/events?type=Warning&limit=50",
       expect.any(Object),
+    );
+  });
+
+  it("runs a read-only kubectl command from the kubectl tab", async () => {
+    root = await renderApp((url, init) => {
+      if (url.pathname === "/api/kubectl" && init?.method === "POST") {
+        expect(init.body).toBe(
+          JSON.stringify({ command: "kubectl get pods -A" }),
+        );
+
+        return {
+          command: "kubectl get pods -A",
+          output: "NAMESPACE  NAME     STATUS\ndefault    web-abc  Running\n",
+          exitCode: 0,
+        };
+      }
+
+      return { items: [] };
+    });
+
+    await clickNav("Kubectl");
+    await waitForText("Read-only command output");
+    await submitForm(".command-form");
+    await waitForText("default    web-abc  Running");
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "/api/kubectl",
+      expect.objectContaining({
+        method: "POST",
+      }),
     );
   });
 });

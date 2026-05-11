@@ -3,6 +3,7 @@ import type {
   ApiEnvelope,
   ClusterSummaryDto,
   EventDto,
+  KubectlCommandResultDto,
   ListResponse,
   NamespaceDto,
   NodeDto,
@@ -100,6 +101,40 @@ async function requestEnvelope<TData>(
   return body as ApiEnvelope<TData>;
 }
 
+async function postEnvelope<TData>(
+  path: string,
+  body: unknown,
+  signal?: AbortSignal,
+): Promise<ApiEnvelope<TData>> {
+  const response = await fetch(createApiUrl(path), {
+    body: JSON.stringify(body),
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+    signal,
+  });
+  const responseBody = (await response.json()) as unknown;
+
+  if (!response.ok) {
+    const errorBody = responseBody as {
+      error?: {
+        code?: string;
+        message?: string;
+      };
+    };
+
+    throw new ApiClientError(
+      response.status,
+      errorBody.error?.code ?? "API_ERROR",
+      errorBody.error?.message ?? "Request failed",
+    );
+  }
+
+  return responseBody as ApiEnvelope<TData>;
+}
+
 export function getClusterSummary(
   signal?: AbortSignal,
 ): Promise<ApiEnvelope<ClusterSummaryDto>> {
@@ -193,6 +228,17 @@ export function getPodLogs(
 ): Promise<ApiEnvelope<PodLogsDto>> {
   return requestEnvelope<PodLogsDto>(
     `/api/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/logs${createPodLogsQuery(options)}`,
+    signal,
+  );
+}
+
+export function runKubectlCommand(
+  command: string,
+  signal?: AbortSignal,
+): Promise<ApiEnvelope<KubectlCommandResultDto>> {
+  return postEnvelope<KubectlCommandResultDto>(
+    "/api/kubectl",
+    { command },
     signal,
   );
 }

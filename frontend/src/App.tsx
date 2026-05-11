@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { FormEvent, ReactNode } from "react";
 import type {
   AlertItemDto,
   ApiEnvelope,
   ClusterSummaryDto,
   EventDto,
+  KubectlCommandResultDto,
   ListResponse,
   NamespaceDto,
   NodeDto,
@@ -24,6 +25,7 @@ import {
   getPodLogs,
   getRecentEvents,
   getWorkloads,
+  runKubectlCommand,
 } from "./api.ts";
 import {
   DataTable,
@@ -44,7 +46,13 @@ import {
 } from "./format.ts";
 import { useApiResource } from "./useApiResource.ts";
 
-type ViewId = "overview" | "nodes" | "namespaces" | "workloads" | "events";
+type ViewId =
+  | "overview"
+  | "nodes"
+  | "namespaces"
+  | "workloads"
+  | "events"
+  | "kubectl";
 
 const views: { id: ViewId; label: string }[] = [
   { id: "overview", label: "Overview" },
@@ -52,6 +60,7 @@ const views: { id: ViewId; label: string }[] = [
   { id: "namespaces", label: "Namespaces" },
   { id: "workloads", label: "Workloads" },
   { id: "events", label: "Events" },
+  { id: "kubectl", label: "Kubectl" },
 ];
 
 const workloadKinds: (WorkloadKind | "all")[] = [
@@ -1131,6 +1140,90 @@ function EventsView() {
   );
 }
 
+function KubectlView() {
+  const [command, setCommand] = useState("kubectl get pods -A");
+  const [result, setResult] =
+    useState<ApiEnvelope<KubectlCommandResultDto> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const submitCommand = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const envelope = await runKubectlCommand(command);
+      setResult(envelope);
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "Unable to run command",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <section className="panel kubectl-panel">
+      <div className="panel-heading">
+        <div>
+          <h2>Kubectl</h2>
+          <p>Read-only command output from the current cluster</p>
+        </div>
+      </div>
+      <form className="command-form" onSubmit={submitCommand}>
+        <label className="command-input">
+          <span>Command</span>
+          <input
+            value={command}
+            spellCheck={false}
+            onChange={(event) => setCommand(event.target.value)}
+          />
+        </label>
+        <button className="secondary-button" disabled={loading} type="submit">
+          {loading ? "Running" : "Run"}
+        </button>
+      </form>
+      <div className="command-examples" aria-label="Supported examples">
+        {[
+          "kubectl get pods -A",
+          "kubectl get nodes",
+          "kubectl describe pod web -n default",
+          "kubectl logs web -n default --tail=100",
+        ].map((example) => (
+          <button
+            className="link-button"
+            key={example}
+            type="button"
+            onClick={() => setCommand(example)}
+          >
+            {example}
+          </button>
+        ))}
+      </div>
+      {error ? (
+        <ErrorState title="Unable to run command" message={error} />
+      ) : null}
+      {result ? (
+        <div className="command-result">
+          <SourceBanner envelope={result} />
+          <div className="command-result-heading">
+            <strong>{result.data.command}</strong>
+            <span>exit {result.data.exitCode}</span>
+          </div>
+          <pre className="log-output">{result.data.output}</pre>
+        </div>
+      ) : (
+        <EmptyState
+          title="No command output"
+          message="Run a supported read-only command to see the result."
+        />
+      )}
+    </section>
+  );
+}
+
 function AlertNotifications() {
   const activeAlertIds = useRef(new Set<string>());
   const [notifications, setNotifications] = useState<AlertItemDto[]>([]);
@@ -1258,6 +1351,7 @@ export default function App() {
         {activeView === "namespaces" ? <NamespacesView /> : null}
         {activeView === "workloads" ? <WorkloadsView /> : null}
         {activeView === "events" ? <EventsView /> : null}
+        {activeView === "kubectl" ? <KubectlView /> : null}
       </main>
       <AlertNotifications />
     </div>

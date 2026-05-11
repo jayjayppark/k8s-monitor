@@ -188,6 +188,16 @@ export interface PodLogsDto {
   logs: string;
 }
 
+export interface KubectlCommandRequestDto {
+  command: string;
+}
+
+export interface KubectlCommandResultDto {
+  command: string;
+  output: string;
+  exitCode: 0;
+}
+
 export interface ListResponse<TItem> {
   items: TItem[];
 }

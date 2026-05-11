@@ -8,6 +8,7 @@ const backendSources = [
   "../src/kubernetes-health.ts",
   "../src/kubernetes-normalizers.ts",
   "../src/kubernetes-resources.ts",
+  "../src/kubectl-command.ts",
 ].map((path) => readFileSync(new URL(path, import.meta.url), "utf8"));
 
 describe("MVP Kubernetes read-only boundary", () => {

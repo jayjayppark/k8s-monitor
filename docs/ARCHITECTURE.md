@@ -61,6 +61,7 @@ Kubernetes cluster
 - metrics-server availability를 확인합니다.
 - Nodes, Namespaces, Pods, Services, Deployments, ReplicaSets, StatefulSets, DaemonSets, Events를 읽습니다.
 - Pod log subresource를 읽어 선택한 Pod/container의 bounded recent log를 반환합니다.
+- 읽기 전용 Kubectl 콘솔 요청을 허용된 명령으로만 해석하고 Kubernetes API 조회로 변환합니다.
 - Kubernetes resource를 프론트엔드에 안전한 DTO로 정규화합니다.
 - unhealthy node, failed/pending pod, high restart count, recent warning event 같은 기본 alert candidate를 계산합니다.
 - Slack webhook이 설정된 경우 alert candidate를 Slack으로 보낼 수 있습니다.
@@ -76,7 +77,7 @@ Kubernetes cluster
 - metrics-server가 없는 경우 usage unavailable 상태를 명확히 보여줍니다.
 - credential 또는 Kubernetes secret을 저장하거나 표시하지 않습니다.
 
-현재 프론트엔드는 React + Vite 런타임으로 구현되어 있습니다. Overview 화면은 `/api/cluster/summary`, `/api/alerts`, `/api/events`를 호출해 node health, risk pod count, active alert, warning event 중심의 summary card, degraded source banner, active alert panel, recent events table을 표시하고 5초마다 갱신합니다. Recent events table은 실제 recent event가 없을 때 발표와 초기 상태 확인을 위한 example event를 표시하고, 실제 Kubernetes event가 반환되면 example을 대체합니다. App shell은 `/api/alerts`를 5초마다 조회해 새 active alert가 생기면 새로고침 없이 우하단 in-app toast를 표시합니다. Nodes, Namespaces, Workloads, Events 화면은 같은 app shell과 API client를 기반으로 list/filter/table UI를 제공합니다. Nodes와 Pod detail의 CPU/memory는 Kubernetes raw quantity만 노출하지 않고 allocatable 또는 request 대비 사용량과 사용률을 함께 표시합니다. Workloads 화면에서 Pod 항목을 선택하면 `/api/pods/{namespace}/{name}`으로 Pod detail을 조회해 선택한 행 바로 아래에 펼쳐 표시합니다. Pod detail 안에서는 `/api/pods/{namespace}/{name}/logs`를 호출해 선택한 container의 현재 또는 previous 로그를 제한된 line count로 표시합니다.
+현재 프론트엔드는 React + Vite 런타임으로 구현되어 있습니다. Overview 화면은 `/api/cluster/summary`, `/api/alerts`, `/api/events`를 호출해 node health, risk pod count, active alert, warning event 중심의 summary card, degraded source banner, active alert panel, recent events table을 표시하고 5초마다 갱신합니다. Recent events table은 실제 recent event가 없을 때 발표와 초기 상태 확인을 위한 example event를 표시하고, 실제 Kubernetes event가 반환되면 example을 대체합니다. App shell은 `/api/alerts`를 5초마다 조회해 새 active alert가 생기면 새로고침 없이 우하단 in-app toast를 표시합니다. Nodes, Namespaces, Workloads, Events 화면은 같은 app shell과 API client를 기반으로 list/filter/table UI를 제공합니다. Kubectl 화면은 `/api/kubectl`로 읽기 전용 명령 문자열을 보내고 백엔드가 반환한 텍스트 결과를 표시합니다. Nodes와 Pod detail의 CPU/memory는 Kubernetes raw quantity만 노출하지 않고 allocatable 또는 request 대비 사용량과 사용률을 함께 표시합니다. Workloads 화면에서 Pod 항목을 선택하면 `/api/pods/{namespace}/{name}`으로 Pod detail을 조회해 선택한 행 바로 아래에 펼쳐 표시합니다. Pod detail 안에서는 `/api/pods/{namespace}/{name}/logs`를 호출해 선택한 container의 현재 또는 previous 로그를 제한된 line count로 표시합니다.
 
 개발 중 기본 API 호출은 same-origin `/api` 경로를 사용합니다. Vite dev server는 `/api` 요청을 `VITE_BACKEND_PROXY_TARGET` 또는 기본값 `http://127.0.0.1:3000`으로 proxy합니다. 브라우저가 직접 백엔드 origin을 호출해야 하는 환경에서는 `VITE_API_BASE_URL`로 API base URL을 지정할 수 있습니다.
 
@@ -91,6 +92,8 @@ Kubernetes cluster
 MVP의 Kubernetes 동작은 읽기 전용입니다.
 
 백엔드는 `@kubernetes/client-node`의 `KubeConfig`로 Kubernetes client를 초기화합니다. 로컬/EC2 개발에서는 `KUBECONFIG`와 선택적 `KUBERNETES_CONTEXT`를 사용하고, 클러스터 내부에서 실행할 때는 `KUBERNETES_AUTH_MODE=in-cluster` 또는 `KUBERNETES_IN_CLUSTER=true`로 service account credentials를 사용합니다.
+
+Kubectl 콘솔은 서버의 `kubectl` 바이너리나 셸을 실행하지 않습니다. 백엔드는 `get`, `describe pod`, `logs` 중 허용된 읽기 전용 명령만 파싱하고 기존 Kubernetes client 조회로 변환합니다. 허용되지 않은 resource type, flag, mutation verb, remote execution verb는 `400`으로 거절합니다.
 
 필요한 verb:
 
