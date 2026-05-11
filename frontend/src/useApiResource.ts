@@ -10,6 +10,7 @@ interface ApiResourceState<TData> {
 
 export function useApiResource<TData>(
   load: (signal: AbortSignal) => Promise<TData>,
+  options: { refreshIntervalMs?: number } = {},
 ): ApiResourceState<TData> {
   const [state, setState] = useState<ApiResourceState<TData>>({
     data: null,
@@ -19,42 +20,64 @@ export function useApiResource<TData>(
 
   useEffect(() => {
     const controller = new AbortController();
+    let refreshTimer: number | undefined;
+    let disposed = false;
 
-    setState((current) => ({
-      ...current,
-      error: null,
-      loading: true,
-    }));
-
-    load(controller.signal)
-      .then((data) => {
-        setState({
-          data,
+    const refresh = (showLoading: boolean) => {
+      if (showLoading) {
+        setState((current) => ({
+          ...current,
           error: null,
-          loading: false,
-        });
-      })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted) {
-          return;
-        }
+          loading: true,
+        }));
+      }
 
-        const message =
-          error instanceof ApiClientError
-            ? `${error.code}: ${error.message}`
-            : "Unable to load data";
+      load(controller.signal)
+        .then((data) => {
+          if (disposed) {
+            return;
+          }
 
-        setState({
-          data: null,
-          error: message,
-          loading: false,
+          setState({
+            data,
+            error: null,
+            loading: false,
+          });
+        })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted || disposed) {
+            return;
+          }
+
+          const message =
+            error instanceof ApiClientError
+              ? `${error.code}: ${error.message}`
+              : "Unable to load data";
+
+          setState((current) => ({
+            data: current.data,
+            error: message,
+            loading: false,
+          }));
         });
-      });
+    };
+
+    refresh(true);
+
+    if (options.refreshIntervalMs) {
+      refreshTimer = window.setInterval(() => {
+        refresh(false);
+      }, options.refreshIntervalMs);
+    }
 
     return () => {
+      disposed = true;
+      if (refreshTimer) {
+        window.clearInterval(refreshTimer);
+      }
       controller.abort();
     };
-  }, [load]);
+  }, [load, options.refreshIntervalMs]);
 
   return state;
 }

@@ -54,7 +54,7 @@ BACKEND_URL=http://127.0.0.1:3000 \
 scripts/trigger-alert-demo.sh run 240
 ```
 
-위 명령은 240초 동안 장애 상태를 유지한 뒤 자동 cleanup합니다. 발표 중에는 브라우저에서 Overview 또는 Workloads를 새로고침해 alert panel, risky pod, recent warning event가 표시되는지 확인합니다.
+위 명령은 240초 동안 장애 상태를 유지한 뒤 자동 cleanup합니다. 발표 중에는 브라우저를 열어 둔 상태에서 우하단 alert toast, Overview alert panel, risky pod, recent warning event가 자동으로 갱신되는지 확인합니다.
 
 ## CrashLoopBackOff
 
@@ -92,7 +92,7 @@ curl http://127.0.0.1:3000/api/alerts
 curl "http://127.0.0.1:3000/api/events?namespace=k8s-monitor-alert-test&limit=20"
 ```
 
-브라우저에서는 Overview, Workloads, Events, Pod detail을 새로고침해 alert와 event가 표시되는지 확인합니다.
+브라우저에서는 Overview, Workloads, Events, Pod detail에서 alert와 event가 표시되는지 확인합니다. Overview와 우하단 alert toast는 주기적으로 갱신되며, 다른 화면은 화면 진입 또는 필터 변경 시 다시 조회합니다.
 
 ## 정리
 
@@ -109,7 +109,7 @@ KUBECONFIG=$HOME/.kube/config kubectl get namespace k8s-monitor-alert-test
 curl http://127.0.0.1:3000/api/alerts
 ```
 
-namespace 조회는 NotFound가 기대값입니다. Alert panel은 refresh와 cooldown 이후 테스트 resource alert가 사라져야 합니다.
+namespace 조회는 NotFound가 기대값입니다. Alert panel은 다음 polling 이후 테스트 resource alert가 사라져야 합니다.
 
 ## 기타 수동 시나리오
 

@@ -100,7 +100,7 @@ run_demo() {
   wait_for_alert
 
   echo
-  echo "Open the dashboard and refresh Overview or Workloads while the demo is held:"
+  echo "Open the dashboard while the demo is held. The UI polls alerts and shows a bottom-right notification:"
   echo "  ${BACKEND_URL%:3000}:5173"
   echo
   echo "Holding demo resources for ${hold_seconds}s before cleanup."

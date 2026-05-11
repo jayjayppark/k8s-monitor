@@ -337,6 +337,7 @@ describe("App resource views", () => {
       });
     }
     root = undefined;
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -724,6 +725,54 @@ describe("App resource views", () => {
     expect(globalThis.fetch).toHaveBeenCalledWith(
       "/api/events?limit=10",
       expect.any(Object),
+    );
+  });
+
+  it("shows a bottom-right alert notification from polling without navigation refresh", async () => {
+    vi.useFakeTimers();
+    let alertRequests = 0;
+
+    root = await renderApp((url) => {
+      if (url.pathname === "/api/alerts") {
+        alertRequests += 1;
+
+        return {
+          items:
+            alertRequests >= 3
+              ? [
+                  {
+                    id: "pod/default/crashy/restarts",
+                    severity: "warning",
+                    status: "active",
+                    title: "Pod crashy is restarting",
+                    message: "Pod default/crashy has restarted repeatedly",
+                    resource: {
+                      kind: "Pod",
+                      namespace: "default",
+                      name: "crashy",
+                      uid: "pod-uid",
+                    },
+                    startedAt: "2026-05-06T00:00:00.000Z",
+                    lastSeenAt: "2026-05-06T00:00:00.000Z",
+                  },
+                ]
+              : [],
+        };
+      }
+
+      return { items: [] };
+    });
+
+    expect(document.body.textContent).not.toContain("Pod crashy is restarting");
+
+    await act(async () => {
+      vi.advanceTimersByTime(10_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(document.querySelector(".toast-region")?.textContent).toContain(
+      "Pod crashy is restarting",
     );
   });
 

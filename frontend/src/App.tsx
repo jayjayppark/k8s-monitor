@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type {
   AlertItemDto,
@@ -65,6 +65,10 @@ const workloadKinds: (WorkloadKind | "all")[] = [
 ];
 
 type PodLogTailLines = "100" | "500";
+
+const OVERVIEW_REFRESH_INTERVAL_MS = 10_000;
+const ALERT_NOTIFICATION_INTERVAL_MS = 10_000;
+const MAX_VISIBLE_ALERT_NOTIFICATIONS = 3;
 
 function SourceBanner({ envelope }: { envelope: ApiEnvelope<unknown> }) {
   const degradedSources = getDegradedSources(envelope.meta.sources);
@@ -276,9 +280,15 @@ function Overview() {
   const loadSummary = useCallback(getClusterSummary, []);
   const loadAlerts = useCallback(getAlerts, []);
   const loadEvents = useCallback(getRecentEvents, []);
-  const summary = useApiResource(loadSummary);
-  const alerts = useApiResource(loadAlerts);
-  const events = useApiResource(loadEvents);
+  const summary = useApiResource(loadSummary, {
+    refreshIntervalMs: OVERVIEW_REFRESH_INTERVAL_MS,
+  });
+  const alerts = useApiResource(loadAlerts, {
+    refreshIntervalMs: OVERVIEW_REFRESH_INTERVAL_MS,
+  });
+  const events = useApiResource(loadEvents, {
+    refreshIntervalMs: OVERVIEW_REFRESH_INTERVAL_MS,
+  });
 
   if (summary.loading) {
     return <LoadingState title="Loading cluster summary" />;
@@ -1073,6 +1083,97 @@ function EventsView() {
   );
 }
 
+function AlertNotifications() {
+  const seenAlertIds = useRef(new Set<string>());
+  const [notifications, setNotifications] = useState<AlertItemDto[]>([]);
+
+  useEffect(() => {
+    let disposed = false;
+    let controller: AbortController | null = null;
+
+    const refreshAlerts = () => {
+      controller?.abort();
+      controller = new AbortController();
+
+      getAlerts(controller.signal)
+        .then((envelope) => {
+          if (disposed) {
+            return;
+          }
+
+          const newAlerts = envelope.data.items.filter((alert) => {
+            if (seenAlertIds.current.has(alert.id)) {
+              return false;
+            }
+
+            seenAlertIds.current.add(alert.id);
+            return true;
+          });
+
+          if (newAlerts.length === 0) {
+            return;
+          }
+
+          setNotifications((current) =>
+            [...newAlerts, ...current].slice(
+              0,
+              MAX_VISIBLE_ALERT_NOTIFICATIONS,
+            ),
+          );
+        })
+        .catch(() => undefined);
+    };
+
+    refreshAlerts();
+    const intervalId = window.setInterval(
+      refreshAlerts,
+      ALERT_NOTIFICATION_INTERVAL_MS,
+    );
+
+    return () => {
+      disposed = true;
+      window.clearInterval(intervalId);
+      controller?.abort();
+    };
+  }, []);
+
+  if (notifications.length === 0) {
+    return null;
+  }
+
+  return (
+    <aside
+      aria-label="Alert notifications"
+      aria-live="polite"
+      className="toast-region"
+    >
+      {notifications.map((alert) => (
+        <article
+          className={`toast toast-${alert.severity}`}
+          key={alert.id}
+          role="status"
+        >
+          <div>
+            <strong>{alert.title}</strong>
+            <span>{alert.message}</span>
+          </div>
+          <button
+            aria-label={`Dismiss ${alert.title}`}
+            type="button"
+            onClick={() =>
+              setNotifications((current) =>
+                current.filter((item) => item.id !== alert.id),
+              )
+            }
+          >
+            x
+          </button>
+        </article>
+      ))}
+    </aside>
+  );
+}
+
 export default function App() {
   const [activeView, setActiveView] = useState<ViewId>("overview");
   const activeLabel = views.find((view) => view.id === activeView)?.label;
@@ -1110,6 +1211,7 @@ export default function App() {
         {activeView === "workloads" ? <WorkloadsView /> : null}
         {activeView === "events" ? <EventsView /> : null}
       </main>
+      <AlertNotifications />
     </div>
   );
 }
