@@ -107,7 +107,7 @@ function readCooldownMs(value: string | undefined): number {
 export function createSlackAlertNotifierFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): SlackAlertNotifier | null {
-  const webhookUrl = env.SLACK_ALERT_WEBHOOK_URL;
+  const webhookUrl = env.SLACK_ALERT_WEBHOOK_URL ?? env.SLACK_WEBHOOK_URL;
 
   if (!webhookUrl) {
     return null;

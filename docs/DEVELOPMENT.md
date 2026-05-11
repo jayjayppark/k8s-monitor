@@ -71,7 +71,7 @@ VITE_BACKEND_PROXY_TARGET=http://127.0.0.1:3000 pnpm dev:frontend
 VITE_API_BASE_URL=http://127.0.0.1:3000 pnpm dev:frontend
 ```
 
-Slack alert 전송은 선택 기능입니다. webhook URL은 파일에 저장하지 않고 실행 시 환경 변수로만 전달합니다. 같은 alert key는 기본 300초 동안 재전송하지 않습니다.
+Slack alert 전송은 선택 기능입니다. webhook URL은 파일에 저장하지 않고 실행 시 환경 변수로만 전달합니다. 백엔드는 `SLACK_ALERT_WEBHOOK_URL`을 우선 사용하고, Slack bot 데모 환경처럼 같은 채널용 `SLACK_WEBHOOK_URL`만 있는 경우 이를 fallback으로 사용합니다. 같은 alert key는 기본 300초 동안 재전송하지 않습니다.
 
 ```sh
 SLACK_ALERT_WEBHOOK_URL=<provided-at-runtime> SLACK_ALERT_COOLDOWN_SECONDS=300 KUBECONFIG=~/.kube/config pnpm dev:backend

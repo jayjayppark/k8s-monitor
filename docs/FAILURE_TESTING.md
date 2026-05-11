@@ -11,7 +11,7 @@
 - 테스트 전용 Kubernetes cluster.
 - `KUBECONFIG`가 테스트 클러스터를 가리킵니다.
 - 백엔드가 해당 kubeconfig로 실행 중입니다.
-- Slack alert를 검증하려면 `SLACK_ALERT_WEBHOOK_URL`을 백엔드 실행 환경 변수로만 제공합니다.
+- Slack alert를 검증하려면 `SLACK_ALERT_WEBHOOK_URL`을 백엔드 실행 환경 변수로만 제공합니다. Slack bot 데모 환경처럼 현재 대화 채널용 `SLACK_WEBHOOK_URL`만 있는 경우 백엔드는 그 값을 fallback으로 사용합니다.
 
 ```sh
 HOST=0.0.0.0 PORT=3000 KUBECONFIG=$HOME/.kube/config pnpm dev:backend

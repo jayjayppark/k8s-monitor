@@ -25,6 +25,14 @@ describe("Slack alert notifier", () => {
     expect(createSlackAlertNotifierFromEnv({})).toBeNull();
   });
 
+  it("uses the shared Slack webhook environment variable as a fallback", () => {
+    expect(
+      createSlackAlertNotifierFromEnv({
+        SLACK_WEBHOOK_URL: "https://hooks.slack.test/services/shared",
+      }),
+    ).toBeInstanceOf(SlackWebhookAlertNotifier);
+  });
+
   it("sends concise active alert messages to the configured webhook", async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () => new Response("ok"));
     const notifier = new SlackWebhookAlertNotifier({
