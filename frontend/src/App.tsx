@@ -1132,7 +1132,7 @@ function EventsView() {
 }
 
 function AlertNotifications() {
-  const seenAlertIds = useRef(new Set<string>());
+  const activeAlertIds = useRef(new Set<string>());
   const [notifications, setNotifications] = useState<AlertItemDto[]>([]);
 
   useEffect(() => {
@@ -1149,14 +1149,14 @@ function AlertNotifications() {
             return;
           }
 
-          const newAlerts = envelope.data.items.filter((alert) => {
-            if (seenAlertIds.current.has(alert.id)) {
-              return false;
-            }
+          const currentActiveIds = new Set(
+            envelope.data.items.map((alert) => alert.id),
+          );
+          const newAlerts = envelope.data.items.filter(
+            (alert) => !activeAlertIds.current.has(alert.id),
+          );
 
-            seenAlertIds.current.add(alert.id);
-            return true;
-          });
+          activeAlertIds.current = currentActiveIds;
 
           if (newAlerts.length === 0) {
             return;

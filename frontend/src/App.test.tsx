@@ -206,6 +206,24 @@ function envelope(data: unknown) {
   };
 }
 
+function crashRestartAlert() {
+  return {
+    id: "pod/default/crashy/restarts",
+    severity: "warning",
+    status: "active",
+    title: "Pod crashy is restarting",
+    message: "Pod default/crashy has restarted repeatedly",
+    resource: {
+      kind: "Pod",
+      namespace: "default",
+      name: "crashy",
+      uid: "pod-uid",
+    },
+    startedAt: "2026-05-06T00:00:00.000Z",
+    lastSeenAt: "2026-05-06T00:00:00.000Z",
+  };
+}
+
 async function waitForText(text: string): Promise<void> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     if (document.body.textContent?.includes(text)) {
@@ -320,6 +338,14 @@ async function changeCheckbox(label: string, checked: boolean): Promise<void> {
     if (control.checked !== checked) {
       control.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     }
+  });
+}
+
+async function advanceAlertPolling(): Promise<void> {
+  await act(async () => {
+    vi.advanceTimersByTime(5_000);
+    await Promise.resolve();
+    await Promise.resolve();
   });
 }
 
@@ -750,26 +776,7 @@ describe("App resource views", () => {
         alertRequests += 1;
 
         return {
-          items:
-            alertRequests >= 3
-              ? [
-                  {
-                    id: "pod/default/crashy/restarts",
-                    severity: "warning",
-                    status: "active",
-                    title: "Pod crashy is restarting",
-                    message: "Pod default/crashy has restarted repeatedly",
-                    resource: {
-                      kind: "Pod",
-                      namespace: "default",
-                      name: "crashy",
-                      uid: "pod-uid",
-                    },
-                    startedAt: "2026-05-06T00:00:00.000Z",
-                    lastSeenAt: "2026-05-06T00:00:00.000Z",
-                  },
-                ]
-              : [],
+          items: alertRequests >= 3 ? [crashRestartAlert()] : [],
         };
       }
 
@@ -778,11 +785,81 @@ describe("App resource views", () => {
 
     expect(document.body.textContent).not.toContain("Pod crashy is restarting");
 
-    await act(async () => {
-      vi.advanceTimersByTime(5_000);
-      await Promise.resolve();
-      await Promise.resolve();
+    await advanceAlertPolling();
+
+    expect(document.querySelector(".toast-region")?.textContent).toContain(
+      "Pod crashy is restarting",
+    );
+  });
+
+  it("shows alert notifications from any active tab", async () => {
+    vi.useFakeTimers();
+    let showAlert = false;
+
+    root = await renderApp((url) => {
+      if (url.pathname === "/api/alerts") {
+        return {
+          items: showAlert ? [crashRestartAlert()] : [],
+        };
+      }
+
+      if (url.pathname === "/api/nodes") {
+        return { items: nodes };
+      }
+
+      return { items: [] };
     });
+
+    await clickNav("Nodes");
+    await waitForText("worker-1");
+
+    showAlert = true;
+    await advanceAlertPolling();
+
+    expect(document.querySelector(".toast-region")?.textContent).toContain(
+      "Pod crashy is restarting",
+    );
+  });
+
+  it("shows the same alert id again after it clears and reappears", async () => {
+    vi.useFakeTimers();
+    let showAlert = false;
+
+    root = await renderApp((url) => {
+      if (url.pathname === "/api/alerts") {
+        return {
+          items: showAlert ? [crashRestartAlert()] : [],
+        };
+      }
+
+      if (url.pathname === "/api/nodes") {
+        return { items: nodes };
+      }
+
+      return { items: [] };
+    });
+
+    await clickNav("Nodes");
+    await waitForText("worker-1");
+
+    showAlert = true;
+    await advanceAlertPolling();
+    expect(document.querySelector(".toast-region")?.textContent).toContain(
+      "Pod crashy is restarting",
+    );
+
+    await act(async () => {
+      document
+        .querySelector(".toast button")
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(document.querySelector(".toast-region")).toBeNull();
+
+    showAlert = false;
+    await advanceAlertPolling();
+
+    showAlert = true;
+    await advanceAlertPolling();
 
     expect(document.querySelector(".toast-region")?.textContent).toContain(
       "Pod crashy is restarting",
