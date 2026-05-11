@@ -33,11 +33,20 @@ EC2에서 K3s를 설치하고 kubeconfig를 준비하는 절차는 `docs/KUBERNE
 HOST=0.0.0.0 PORT=3000 KUBECONFIG=$HOME/.kube/config pnpm dev:backend
 ```
 
+개발 실행은 watcher가 아니므로 백엔드 코드를 수정한 뒤에는 실행 중인 `pnpm dev:backend` 프로세스를 종료하고 다시 시작해야 합니다. 현재 실행 중인 프로세스와 listen port는 아래처럼 확인합니다.
+
+```sh
+ps -eo pid,ppid,lstart,cmd | rg '(@k8s-monitor/backend|dev:backend|src/server.ts)'
+ss -ltnp | rg ':3000'
+```
+
 프론트엔드:
 
 ```sh
 VITE_BACKEND_PROXY_TARGET=http://127.0.0.1:3000 pnpm --filter @k8s-monitor/frontend dev --host 0.0.0.0
 ```
+
+프론트엔드는 브라우저에 HTML/JS를 제공하고, same-origin `/api` 요청은 Vite proxy가 `VITE_BACKEND_PROXY_TARGET`으로 전달합니다. 기본 EC2 개발 구성에서는 브라우저가 `http://<EC2_PUBLIC_IP>:5173`에 접속하고, API 데이터는 `5173 -> 127.0.0.1:3000 -> Kubernetes API` 경로로 조회됩니다.
 
 접속:
 
