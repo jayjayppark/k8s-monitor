@@ -322,7 +322,7 @@ function ResourceLoadState<TData>({
   errorTitle: string;
   children: (data: TData) => ReactNode;
 }) {
-  if (resource.loading) {
+  if (resource.loading && !resource.data) {
     return <LoadingState title={loadingTitle} />;
   }
 

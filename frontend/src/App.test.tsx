@@ -217,15 +217,26 @@ async function clickNav(label: string): Promise<void> {
   });
 }
 
-async function changeControl(label: string, value: string): Promise<void> {
+function findControl(label: string): HTMLInputElement | HTMLSelectElement {
   const labelElement = [...document.querySelectorAll("label")].find((element) =>
     element.textContent?.includes(label),
   );
   const control = labelElement?.querySelector("input, select");
 
-  if (!control) {
+  if (
+    !(
+      control instanceof HTMLInputElement ||
+      control instanceof HTMLSelectElement
+    )
+  ) {
     throw new Error(`Unable to find control: ${label}`);
   }
+
+  return control;
+}
+
+async function changeControl(label: string, value: string): Promise<void> {
+  const control = findControl(label);
 
   await act(async () => {
     Object.defineProperty(control, "value", {
@@ -281,6 +292,44 @@ describe("App resource views", () => {
     expect(document.body.textContent).not.toContain("worker-1");
     expect(globalThis.fetch).toHaveBeenCalledWith(
       "/api/nodes?status=notReady",
+      expect.any(Object),
+    );
+  });
+
+  it("keeps the node name search focused while filtering", async () => {
+    root = await renderApp((url) => {
+      if (url.pathname === "/api/nodes") {
+        const search = url.searchParams.get("search") ?? "";
+
+        return {
+          items: search
+            ? nodes.filter((node) => node.name.includes(search))
+            : nodes,
+        };
+      }
+
+      return { items: [] };
+    });
+
+    await clickNav("Nodes");
+    await waitForText("worker-1");
+
+    const searchInput = findControl("Name");
+    searchInput.focus();
+    expect(document.activeElement).toBe(searchInput);
+
+    await changeControl("Name", "w");
+    expect(document.activeElement).toBe(searchInput);
+    expect(searchInput.value).toBe("w");
+
+    await changeControl("Name", "worker-2");
+    await waitForText("worker-2");
+
+    expect(document.activeElement).toBe(searchInput);
+    expect(searchInput.value).toBe("worker-2");
+    expect(document.body.textContent).not.toContain("worker-1");
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "/api/nodes?search=worker-2",
       expect.any(Object),
     );
   });
