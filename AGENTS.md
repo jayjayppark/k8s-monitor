@@ -21,7 +21,7 @@
 - Kubernetes resource mutation 기능은 MVP에 추가하지 않습니다.
 - MVP에는 collector, DaemonSet, Operator, sidecar, node-level agent를 추가하지 않습니다.
 - Prometheus 통합은 MVP 범위 밖입니다.
-- `sudo`를 실행하지 않습니다.
+- 사용자가 명시적으로 허용한 경우에만 `sudo`를 실행할 수 있습니다.
 - AWS 구성을 변경하지 않습니다.
 - Slack 작업에서 검증이 통과한 구현 변경은 push합니다. 그 외에는 명시적으로 요청받지 않는 한 push하지 않습니다.
 - Slack webhook URL, token, kubeconfig 내용, bearer token, AWS credential 또는 기타 secret을 파일에 쓰지 않습니다.
