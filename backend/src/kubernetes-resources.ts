@@ -151,11 +151,9 @@ function filterWorkloads(
   options: WorkloadListOptions = {},
 ): WorkloadItemDto[] {
   return workloads
-    .filter(
-      (item) => !options.namespace || item.namespace === options.namespace,
-    )
+    .filter((item) => includesSearch(item.namespace, options.namespace))
     .filter((item) => !options.kind || item.kind === options.kind)
-    .filter((item) => !options.status || item.status === options.status)
+    .filter((item) => includesSearch(item.status, options.status))
     .filter((item) => includesSearch(item.name, options.search));
 }
 

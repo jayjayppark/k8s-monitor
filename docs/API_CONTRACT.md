@@ -217,10 +217,10 @@ Query:
 
 Query:
 
-- `namespace`: optional namespace.
+- `namespace`: optional namespace search. 부분 문자열과 대소문자를 무시한 매칭을 사용합니다.
 - `kind`: optional `Pod`, `Deployment`, `ReplicaSet`, `StatefulSet`, `DaemonSet`, `Service`.
-- `status`: optional status string.
-- `search`: optional name search.
+- `status`: optional status search. 부분 문자열과 대소문자를 무시한 매칭을 사용합니다.
+- `search`: optional name search. 부분 문자열과 대소문자를 무시한 매칭을 사용합니다.
 
 ```json
 {

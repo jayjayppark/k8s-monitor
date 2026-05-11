@@ -49,7 +49,7 @@ MVP는 하나의 Kubernetes 클러스터 상태를 빠르게 파악하는 읽기
 - Pods, Deployments, ReplicaSets, StatefulSets, DaemonSets, Services.
 - kind, namespace, name, status, readiness, restarts.
 - owner summary, age.
-- namespace, kind, status, name search filter.
+- namespace, kind, status, name search filter. namespace/status/name 검색은 부분 문자열과 대소문자를 무시한 매칭을 사용합니다.
 - Pod 항목을 선택하면 선택한 행 바로 아래에 Pod detail을 펼쳐 보여줍니다.
 
 ### Pod detail
