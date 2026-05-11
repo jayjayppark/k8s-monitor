@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 
 interface StateProps {
   title: string;
@@ -89,6 +89,7 @@ export function DataTable<TItem>({
   columns,
   items,
   getKey,
+  renderAfterRow,
 }: {
   columns: {
     key: string;
@@ -97,6 +98,7 @@ export function DataTable<TItem>({
   }[];
   items: TItem[];
   getKey: (item: TItem) => string;
+  renderAfterRow?: (item: TItem) => ReactNode;
 }) {
   return (
     <div className="table-wrap">
@@ -109,13 +111,25 @@ export function DataTable<TItem>({
           </tr>
         </thead>
         <tbody>
-          {items.map((item) => (
-            <tr key={getKey(item)}>
-              {columns.map((column) => (
-                <td key={column.key}>{column.render(item)}</td>
-              ))}
-            </tr>
-          ))}
+          {items.map((item) => {
+            const rowKey = getKey(item);
+            const afterRow = renderAfterRow?.(item);
+
+            return (
+              <Fragment key={rowKey}>
+                <tr>
+                  {columns.map((column) => (
+                    <td key={column.key}>{column.render(item)}</td>
+                  ))}
+                </tr>
+                {afterRow ? (
+                  <tr className="expanded-row">
+                    <td colSpan={columns.length}>{afterRow}</td>
+                  </tr>
+                ) : null}
+              </Fragment>
+            );
+          })}
         </tbody>
       </table>
     </div>

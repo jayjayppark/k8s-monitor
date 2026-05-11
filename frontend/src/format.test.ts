@@ -5,6 +5,7 @@ import {
   formatLabels,
   formatQuantity,
   formatResourcePair,
+  formatResourceUsage,
   getDegradedSources,
 } from "./format.ts";
 
@@ -53,11 +54,22 @@ describe("frontend formatting helpers", () => {
           unit: "bytes",
         },
       }),
-    ).toBe("CPU 250m / Memory 128Mi");
+    ).toBe("CPU 0.25 cores (250m) / Mem 128 MiB");
     expect(formatQuantity(null)).toBe("unavailable");
     expect(formatLabels({ app: "web", tier: "frontend" })).toBe(
       "app=web, tier=frontend",
     );
     expect(formatLabels({})).toBe("-");
+  });
+
+  it("formats resource usage against an operational baseline", () => {
+    expect(
+      formatResourceUsage(
+        { raw: "250m", value: 250, unit: "millicores" },
+        { raw: "1", value: 1000, unit: "millicores" },
+        "cpu",
+        "request",
+      ),
+    ).toBe("0.25 cores / 1.0 cores request (25%)");
   });
 });

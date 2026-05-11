@@ -313,6 +313,39 @@ main {
   overflow-wrap: anywhere;
 }
 
+.inline-detail {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-left: 4px solid #2563eb;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.inline-detail h2 {
+  font-size: 17px;
+  margin: 0;
+}
+
+.inline-detail h3 {
+  font-size: 15px;
+  margin: 18px 0 10px;
+}
+
+.expanded-row > td {
+  background: #f8fafc;
+  padding: 14px 10px 18px;
+}
+
+.expanded-row .table-wrap {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.expanded-row table {
+  min-width: 620px;
+}
+
 .table-wrap {
   overflow-x: auto;
 }

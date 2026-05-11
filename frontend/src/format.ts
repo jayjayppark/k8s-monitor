@@ -4,6 +4,8 @@ import type {
   ResourceQuantityDto,
 } from "@k8s-monitor/shared";
 
+type ResourceKind = "cpu" | "memory";
+
 export function formatCount(value: number): string {
   return new Intl.NumberFormat("en-US").format(value);
 }
@@ -49,24 +51,81 @@ export function formatQuantity(quantity: QuantityDto | null): string {
   }
 
   if (quantity.unit === "millicores") {
-    return `${formatCount(quantity.value)}m`;
+    return `${(quantity.value / 1000).toFixed(quantity.value < 1000 ? 2 : 1)} cores (${formatCount(quantity.value)}m)`;
   }
 
   const gib = quantity.value / 1024 ** 3;
   if (gib >= 1) {
-    return `${gib.toFixed(gib >= 10 ? 0 : 1)}Gi`;
+    return `${gib.toFixed(gib >= 10 ? 0 : 1)} GiB`;
   }
 
   const mib = quantity.value / 1024 ** 2;
   if (mib >= 1) {
-    return `${mib.toFixed(mib >= 10 ? 0 : 1)}Mi`;
+    return `${mib.toFixed(mib >= 10 ? 0 : 1)} MiB`;
   }
 
   return `${formatCount(quantity.value)}B`;
 }
 
 export function formatResourcePair(resources: ResourceQuantityDto): string {
-  return `CPU ${formatQuantity(resources.cpu)} / Memory ${formatQuantity(resources.memory)}`;
+  return `CPU ${formatQuantity(resources.cpu)} / Mem ${formatQuantity(resources.memory)}`;
+}
+
+function formatResourcePercent(
+  usage: QuantityDto | null,
+  capacity: QuantityDto | null,
+): string | null {
+  if (
+    !usage ||
+    !capacity ||
+    capacity.value <= 0 ||
+    usage.unit !== capacity.unit
+  ) {
+    return null;
+  }
+
+  return `${Math.round((usage.value / capacity.value) * 100)}%`;
+}
+
+export function formatSingleResource(
+  quantity: QuantityDto | null,
+  kind: ResourceKind,
+): string {
+  if (!quantity) {
+    return "unavailable";
+  }
+
+  if (kind === "cpu") {
+    return `${(quantity.value / 1000).toFixed(quantity.value < 1000 ? 2 : 1)} cores`;
+  }
+
+  return formatQuantity(quantity);
+}
+
+export function formatResourceUsage(
+  usage: QuantityDto | null,
+  baseline: QuantityDto | null,
+  kind: ResourceKind,
+  baselineLabel = "capacity",
+): string {
+  if (!usage && !baseline) {
+    return "unavailable";
+  }
+
+  const percent = formatResourcePercent(usage, baseline);
+  const usageLabel = usage
+    ? formatSingleResource(usage, kind)
+    : "usage unavailable";
+  const baselineValue = baseline
+    ? formatSingleResource(baseline, kind)
+    : `${baselineLabel} unavailable`;
+  const baselineText = baseline
+    ? `${baselineValue} ${baselineLabel}`
+    : baselineValue;
+
+  return percent
+    ? `${usageLabel} / ${baselineText} (${percent})`
+    : `${usageLabel} / ${baselineText}`;
 }
 
 export function formatLabels(labels: Record<string, string>): string {

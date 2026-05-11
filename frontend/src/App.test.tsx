@@ -270,7 +270,9 @@ describe("App resource views", () => {
     await clickNav("Nodes");
     await waitForText("worker-1");
     expect(document.body.textContent).toContain("metrics-server");
-    expect(document.body.textContent).toContain("CPU unavailable");
+    expect(document.body.textContent).toContain(
+      "usage unavailable / 4.0 cores allocatable",
+    );
     expect(document.querySelector(".table-wrap")).not.toBeNull();
 
     await changeControl("Readiness", "notReady");
@@ -366,7 +368,7 @@ describe("App resource views", () => {
 
     await clickNav("Workloads");
     await waitForText("web-abc");
-    expect(document.body.textContent).toContain("app=web");
+    expect(document.body.textContent).toContain("ReplicaSet/web");
 
     await changeControl("Kind", "Pod");
     await waitForText("web-abc");
@@ -383,7 +385,10 @@ describe("App resource views", () => {
 
     await waitForText("Pod default/web-abc");
     expect(document.body.textContent).toContain("example/web:1.0.0");
-    expect(document.body.textContent).toContain("CPU unavailable");
+    expect(document.body.textContent).toContain(
+      "usage unavailable / 0.10 cores request",
+    );
+    expect(document.querySelector(".expanded-row")).not.toBeNull();
     expect(document.querySelector(".table-wrap")).not.toBeNull();
   });
 

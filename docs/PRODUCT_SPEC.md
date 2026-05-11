@@ -26,10 +26,9 @@ MVP는 하나의 Kubernetes 클러스터 상태를 빠르게 파악하는 읽기
 
 - Kubernetes version.
 - node readiness count.
-- namespace count.
-- pod phase count.
-- workload count.
+- risk pod count.
 - recent warning event count.
+- active alert count.
 - Kubernetes API 또는 metrics API degraded 상태.
 - 문제가 있는 리소스가 있으면 브라우저 화면에서 눈에 띄는 알림을 표시합니다.
 
@@ -37,8 +36,7 @@ MVP는 하나의 Kubernetes 클러스터 상태를 빠르게 파악하는 읽기
 
 - name, readiness, roles, kubelet version.
 - internal IP.
-- allocatable CPU/memory.
-- metrics-server가 제공하는 current CPU/memory usage.
+- allocatable 대비 current CPU/memory usage와 사용률.
 - readiness와 name search filter.
 
 ### Namespaces
@@ -50,15 +48,16 @@ MVP는 하나의 Kubernetes 클러스터 상태를 빠르게 파악하는 읽기
 
 - Pods, Deployments, ReplicaSets, StatefulSets, DaemonSets, Services.
 - kind, namespace, name, status, readiness, restarts.
-- label summary, owner summary, age.
+- owner summary, age.
 - namespace, kind, status, name search filter.
+- Pod 항목을 선택하면 선택한 행 바로 아래에 Pod detail을 펼쳐 보여줍니다.
 
 ### Pod detail
 
 - status, node assignment, pod IP, readiness, restarts.
 - container readiness, image, restart count.
 - resource requests/limits.
-- current usage when metrics are available.
+- request 대비 current CPU/memory usage와 사용률.
 - related recent events.
 
 ### Events

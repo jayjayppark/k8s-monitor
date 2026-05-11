@@ -36,8 +36,8 @@ import {
   formatAge,
   formatCount,
   formatDateTime,
-  formatLabels,
   formatResourcePair,
+  formatResourceUsage,
   getDegradedSources,
 } from "./format.ts";
 import { useApiResource } from "./useApiResource.ts";
@@ -105,41 +105,46 @@ function MetricCard({
 }
 
 function SummaryCards({ summary }: { summary: ClusterSummaryDto }) {
+  const atRiskPods =
+    summary.pods.pending + summary.pods.failed + summary.pods.unknown;
+
   return (
     <section className="metric-grid" aria-label="Cluster summary">
       <MetricCard
-        label="Nodes"
+        label="Node health"
         value={`${summary.nodes.ready}/${summary.nodes.total}`}
         detail={`${summary.nodes.notReady} not ready`}
         tone={summary.nodes.notReady > 0 ? "critical" : "good"}
       />
       <MetricCard
-        label="Pods"
-        value={summary.pods.total}
-        detail={`${summary.pods.pending} pending, ${summary.pods.failed} failed`}
+        label="Pods at risk"
+        value={atRiskPods}
+        detail={`${summary.pods.running}/${summary.pods.total} running`}
         tone={
           summary.pods.failed > 0
             ? "critical"
-            : summary.pods.pending > 0
+            : atRiskPods > 0
               ? "warning"
               : "good"
         }
       />
       <MetricCard
-        label="Workloads"
-        value={
-          summary.workloads.deployments +
-          summary.workloads.statefulSets +
-          summary.workloads.daemonSets +
-          summary.workloads.replicaSets
+        label="Active alerts"
+        value={summary.alerts.active}
+        detail={`${summary.alerts.critical} critical, ${summary.alerts.warning} warning`}
+        tone={
+          summary.alerts.critical > 0
+            ? "critical"
+            : summary.alerts.warning > 0
+              ? "warning"
+              : "good"
         }
-        detail={`${summary.workloads.deployments} deploy, ${summary.workloads.daemonSets} daemon`}
       />
       <MetricCard
-        label="Warnings"
+        label="Warning events"
         value={summary.events.recentWarnings}
-        detail={`${summary.alerts.active} active alerts`}
-        tone={summary.alerts.critical > 0 ? "critical" : "warning"}
+        detail={`${summary.namespaces.total} namespaces watched`}
+        tone={summary.events.recentWarnings > 0 ? "warning" : "good"}
       />
     </section>
   );
@@ -397,24 +402,31 @@ function NodesView() {
                   render: (node) => node.roles.join(", ") || "-",
                 },
                 {
-                  key: "version",
-                  header: "Kubelet",
-                  render: (node) => node.kubeletVersion ?? "unknown",
+                  key: "cpu",
+                  header: "CPU",
+                  render: (node) =>
+                    formatResourceUsage(
+                      node.usage.cpu,
+                      node.allocatable.cpu,
+                      "cpu",
+                      "allocatable",
+                    ),
+                },
+                {
+                  key: "memory",
+                  header: "Memory",
+                  render: (node) =>
+                    formatResourceUsage(
+                      node.usage.memory,
+                      node.allocatable.memory,
+                      "memory",
+                      "allocatable",
+                    ),
                 },
                 {
                   key: "ip",
                   header: "Internal IP",
                   render: (node) => node.internalIP ?? "unknown",
-                },
-                {
-                  key: "allocatable",
-                  header: "Allocatable",
-                  render: (node) => formatResourcePair(node.allocatable),
-                },
-                {
-                  key: "usage",
-                  header: "Usage",
-                  render: (node) => formatResourcePair(node.usage),
                 },
                 {
                   key: "age",
@@ -533,7 +545,7 @@ function PodDetailContent({
   onClose: () => void;
 }) {
   return (
-    <section className="panel">
+    <section className="inline-detail" aria-label="Selected pod detail">
       <div className="panel-heading">
         <div>
           <h2>
@@ -549,12 +561,16 @@ function PodDetailContent({
         </button>
       </div>
       <div className="detail-grid">
-        <span>Pod IP</span>
-        <strong>{pod.podIP ?? "unknown"}</strong>
-        <span>Node</span>
-        <strong>{pod.nodeName ?? "unassigned"}</strong>
         <span>Status</span>
         <strong>{pod.status}</strong>
+        <span>Ready</span>
+        <strong>{pod.ready}</strong>
+        <span>Restarts</span>
+        <strong>{pod.restarts}</strong>
+        <span>Node</span>
+        <strong>{pod.nodeName ?? "unassigned"}</strong>
+        <span>Pod IP</span>
+        <strong>{pod.podIP ?? "unknown"}</strong>
       </div>
       <h3>Containers</h3>
       {pod.containers.length === 0 ? (
@@ -570,7 +586,11 @@ function PodDetailContent({
             {
               key: "ready",
               header: "Ready",
-              render: (container) => String(container.ready),
+              render: (container) => (
+                <span className="pill">
+                  {container.ready ? "Ready" : "NotReady"}
+                </span>
+              ),
             },
             {
               key: "name",
@@ -578,20 +598,31 @@ function PodDetailContent({
               render: (container) => container.name,
             },
             {
-              key: "image",
-              header: "Image",
-              render: (container) => container.image,
-            },
-            {
               key: "restarts",
               header: "Restarts",
               render: (container) => container.restartCount,
             },
             {
-              key: "requests",
-              header: "Requests",
+              key: "cpu",
+              header: "CPU",
               render: (container) =>
-                formatResourcePair(container.resources.requests),
+                formatResourceUsage(
+                  container.usage.cpu,
+                  container.resources.requests.cpu,
+                  "cpu",
+                  "request",
+                ),
+            },
+            {
+              key: "memory",
+              header: "Memory",
+              render: (container) =>
+                formatResourceUsage(
+                  container.usage.memory,
+                  container.resources.requests.memory,
+                  "memory",
+                  "request",
+                ),
             },
             {
               key: "limits",
@@ -600,9 +631,9 @@ function PodDetailContent({
                 formatResourcePair(container.resources.limits),
             },
             {
-              key: "usage",
-              header: "Usage",
-              render: (container) => formatResourcePair(container.usage),
+              key: "image",
+              header: "Image",
+              render: (container) => container.image,
             },
           ]}
         />
@@ -718,7 +749,25 @@ function WorkloadsView() {
               <DataTable<WorkloadItemDto>
                 items={envelope.data.items}
                 getKey={(item) => `${item.kind}:${item.namespace}:${item.name}`}
+                renderAfterRow={(item) =>
+                  selectedPod &&
+                  item.kind === "Pod" &&
+                  item.namespace === selectedPod.namespace &&
+                  item.name === selectedPod.name ? (
+                    <PodDetailPanel
+                      podRef={selectedPod}
+                      onClose={() => setSelectedPod(null)}
+                    />
+                  ) : null
+                }
                 columns={[
+                  {
+                    key: "status",
+                    header: "Status",
+                    render: (item) => (
+                      <span className="pill">{item.status}</span>
+                    ),
+                  },
                   {
                     key: "kind",
                     header: "Kind",
@@ -751,11 +800,6 @@ function WorkloadsView() {
                       ),
                   },
                   {
-                    key: "status",
-                    header: "Status",
-                    render: (item) => item.status,
-                  },
-                  {
                     key: "ready",
                     header: "Ready",
                     render: (item) => item.ready,
@@ -764,11 +808,6 @@ function WorkloadsView() {
                     key: "restarts",
                     header: "Restarts",
                     render: (item) => item.restarts ?? "-",
-                  },
-                  {
-                    key: "labels",
-                    header: "Labels",
-                    render: (item) => formatLabels(item.labels),
                   },
                   {
                     key: "owner",
@@ -786,12 +825,6 @@ function WorkloadsView() {
           </section>
         )}
       </ResourceLoadState>
-      {selectedPod ? (
-        <PodDetailPanel
-          podRef={selectedPod}
-          onClose={() => setSelectedPod(null)}
-        />
-      ) : null}
     </div>
   );
 }
