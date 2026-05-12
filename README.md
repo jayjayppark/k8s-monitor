@@ -27,6 +27,73 @@ EC2에서 K3s를 설치하고 kubeconfig를 준비하는 절차는 `docs/KUBERNE
 
 ## 실행
 
+### EC2 중지 후 재시작 순서
+
+EC2를 stop/start 한 뒤에는 K3s, 백엔드, 프론트엔드 순서로 확인하거나 실행합니다. K3s는 systemd 서비스라 정상 설치되어 있으면 부팅 후 자동으로 올라옵니다. 별도의 네트워크 연결 작업은 필요 없고, 백엔드는 `KUBECONFIG`로 Kubernetes API에 연결하며 프론트엔드는 Vite proxy로 백엔드에 연결합니다.
+
+1. EC2에 접속하고 저장소로 이동합니다.
+
+```sh
+cd /home/ubuntu/workspace/k8s-monitor
+```
+
+2. Kubernetes가 준비됐는지 확인합니다.
+
+```sh
+systemctl is-active k3s
+KUBECONFIG=$HOME/.kube/config kubectl get nodes
+KUBECONFIG=$HOME/.kube/config kubectl get --raw /version
+```
+
+`systemctl is-active k3s`가 `active`가 아니면 K3s를 시작해야 합니다. 이 명령은 systemd 서비스 변경이라 `sudo`가 필요합니다.
+
+```sh
+sudo systemctl start k3s
+```
+
+3. 백엔드를 실행합니다.
+
+```sh
+HOST=0.0.0.0 PORT=3000 KUBECONFIG=$HOME/.kube/config pnpm dev:backend
+```
+
+4. 다른 터미널에서 프론트엔드를 실행합니다.
+
+```sh
+VITE_BACKEND_PROXY_TARGET=http://127.0.0.1:3000 pnpm --filter @k8s-monitor/frontend dev --host 0.0.0.0
+```
+
+5. 같은 EC2에서 smoke test를 실행합니다.
+
+```sh
+curl http://127.0.0.1:3000/api/health
+curl http://127.0.0.1:5173/api/health
+curl -I http://127.0.0.1:5173/
+```
+
+6. 브라우저에서 접속합니다.
+
+```text
+http://<EC2_PUBLIC_IP>:5173
+```
+
+EC2를 stop/start 하면 Elastic IP를 붙이지 않은 인스턴스의 public IP는 바뀔 수 있습니다. 바뀐 경우 새 public IP로 접속합니다.
+
+실행 중인 백엔드/프론트엔드 프로세스와 포트는 아래처럼 확인합니다.
+
+```sh
+ps -eo pid,ppid,lstart,cmd | rg '(@k8s-monitor/backend|@k8s-monitor/frontend|dev:backend|dev:frontend|vite|src/server.ts)'
+ss -ltnp | rg ':(3000|5173)\b'
+```
+
+재시작을 위해 기존 앱 프로세스를 종료해야 하면 `ps` 출력의 해당 PID에 `kill -TERM`을 보냅니다.
+
+```sh
+kill -TERM <PID>
+```
+
+### 개발 실행
+
 백엔드:
 
 ```sh

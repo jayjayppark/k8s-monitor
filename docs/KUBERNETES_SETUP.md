@@ -65,25 +65,70 @@ metrics-server가 준비되기 전에는 `kubectl top`이나 metrics raw API가 
 
 ## 애플리케이션 실행
 
-백엔드:
+EC2를 중지했다가 다시 시작한 뒤에는 K3s, 백엔드, 프론트엔드 순서로 확인하거나 실행합니다. K3s는 정상 설치되어 있으면 systemd가 부팅 시 자동으로 시작합니다. 백엔드와 프론트엔드는 개발 프로세스이므로 EC2 재부팅 뒤 직접 다시 실행합니다.
+
+저장소로 이동합니다.
+
+```sh
+cd /home/ubuntu/workspace/k8s-monitor
+```
+
+K3s와 kubeconfig 접근을 확인합니다.
+
+```sh
+systemctl is-active k3s
+KUBECONFIG=$HOME/.kube/config kubectl get nodes
+KUBECONFIG=$HOME/.kube/config kubectl get --raw /version
+```
+
+`systemctl is-active k3s`가 `active`가 아니면 K3s를 시작합니다. 이 명령은 systemd service를 변경하므로 `sudo`가 필요합니다.
+
+```sh
+sudo systemctl start k3s
+```
+
+백엔드를 실행합니다.
 
 ```sh
 HOST=0.0.0.0 PORT=3000 KUBECONFIG=$HOME/.kube/config pnpm dev:backend
 ```
 
-프론트엔드:
+프론트엔드는 다른 터미널에서 실행합니다.
 
 ```sh
 VITE_BACKEND_PROXY_TARGET=http://127.0.0.1:3000 pnpm --filter @k8s-monitor/frontend dev --host 0.0.0.0
 ```
 
-브라우저:
+연결을 위한 별도 명령은 필요 없습니다. 백엔드는 `KUBECONFIG`로 같은 EC2의 Kubernetes API를 호출하고, 프론트엔드는 same-origin `/api` 요청을 Vite proxy를 통해 `VITE_BACKEND_PROXY_TARGET`인 `http://127.0.0.1:3000`으로 전달합니다.
+
+같은 EC2에서 smoke test를 실행합니다.
+
+```sh
+curl http://127.0.0.1:3000/api/health
+curl http://127.0.0.1:5173/api/health
+curl -I http://127.0.0.1:5173/
+```
+
+브라우저에서 접속합니다.
 
 ```text
 http://<EC2_PUBLIC_IP>:5173
 ```
 
-외부 브라우저 접근에는 EC2 security group에서 `5173/tcp`가 허용되어 있어야 합니다. AWS 보안 그룹 변경은 이 문서의 절차에 포함하지 않습니다.
+EC2 stop/start 뒤 Elastic IP가 없는 인스턴스는 public IP가 바뀔 수 있습니다. 바뀐 경우 새 public IP로 접속합니다. 외부 브라우저 접근에는 EC2 security group에서 `5173/tcp`가 허용되어 있어야 합니다. AWS 보안 그룹 변경은 이 문서의 절차에 포함하지 않습니다.
+
+실행 중인 앱 프로세스와 listen port는 아래처럼 확인합니다.
+
+```sh
+ps -eo pid,ppid,lstart,cmd | rg '(@k8s-monitor/backend|@k8s-monitor/frontend|dev:backend|dev:frontend|vite|src/server.ts)'
+ss -ltnp | rg ':(3000|5173)\b'
+```
+
+기존 앱 프로세스를 종료하고 다시 실행해야 하면 `ps` 출력의 해당 PID에 `kill -TERM`을 보냅니다.
+
+```sh
+kill -TERM <PID>
+```
 
 ## 제거
 
