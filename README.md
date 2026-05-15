@@ -2,6 +2,10 @@
 
 하나의 Kubernetes 클러스터를 읽기 전용으로 모니터링하는 경량 웹 애플리케이션입니다. MVP는 EC2 한 대에서 K3s 단일 노드 Kubernetes, Fastify 백엔드, React/Vite 프론트엔드를 함께 실행해 실제 Kubernetes API 연결을 검증합니다.
 
+## Screenshot
+
+![Kubernetes Monitor overview dashboard](docs/assets/overview.png)
+
 ## 진행 상황
 
 - 백엔드는 kubeconfig 또는 in-cluster service account로 Kubernetes API와 metrics API를 조회합니다.
